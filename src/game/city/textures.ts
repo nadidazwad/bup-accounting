@@ -538,3 +538,35 @@ function buildFx(scene: Phaser.Scene) {
 }
 
 export function shade(hex: string, amount: number) { return shadeHex(hex, 1 + amount); }
+
+/** One Level 2 sprite on its own canvas, for the page decorations outside the game screen. */
+export function decorCanvas(kind: { car: string; lights?: number } | { ped: "cop" | "player" | number } | "fire" | "cash") {
+  if (kind === "fire" || kind === "cash") {
+    const cv = canvas(24, 24), c = ctx2d(cv);
+    if (kind === "fire") {
+      // A stepped fireball with licks, like the city's burning wrecks.
+      const r = rng(11);
+      blob(c, 12, 13, 10, 9, "#c8300c");
+      for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2; blob(c, 12 + Math.cos(a) * 8, 13 + Math.sin(a) * 7, 3 + r() * 2, 3 + r() * 2, "#c8300c"); }
+      blob(c, 12, 13, 7.5, 7, "#f08018"); blob(c, 12, 13, 5, 4.5, "#ffd040"); blob(c, 11, 12, 2.5, 2.5, "#fff8d0");
+    } else {
+      // A banded stack of bills.
+      for (let i = 0; i < 4; i++) { const y = 15 - i * 3; rect(c, 2, y, 20, 6, "#141414"); rect(c, 3, y + 1, 18, 4, i % 2 ? "#4f9a4a" : "#5aaa52"); rect(c, 3, y + 1, 18, 1, "#8fd27c"); }
+      rect(c, 10, 6, 4, 14, "#141414"); rect(c, 11, 6, 2, 13, "#e8c040");
+      blob(c, 7, 9, 2, 1.5, "#2e6a2c"); blob(c, 17, 9, 2, 1.5, "#2e6a2c");
+    }
+    crisp(c, 24, 24);
+    return cv;
+  }
+  if ("car" in kind) {
+    const cv = canvas(CAR_CELL.w, CAR_CELL.h), c = ctx2d(cv);
+    drawCar(c, carVariants.find((v) => v.name === kind.car) ?? carVariants[0], { lights: kind.lights });
+    crisp(c, CAR_CELL.w, CAR_CELL.h);
+    return cv;
+  }
+  const cv = canvas(PED_CELL, PED_CELL), c = ctx2d(cv);
+  const look = kind.ped === "cop" ? COP : kind.ped === "player" ? PLAYER : pedVariants[kind.ped % pedVariants.length];
+  drawPed(c, look, { stride: 5, arm: -3, lean: 0, bob: 0, panic: false });
+  crisp(c, PED_CELL, PED_CELL);
+  return cv;
+}

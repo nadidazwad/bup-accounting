@@ -40,6 +40,14 @@ export default function GameCanvas() {
       display.dataset.scale = String(scale);
       display.dataset.deviceScale = String(Math.round(scale * window.devicePixelRatio));
       display.dataset.screen = state.screen;
+      // The stickers around the screen fill whatever width is left beside it.
+      const stage = element.closest<HTMLElement>(".stage");
+      if (stage) {
+        const gutter = Math.max(0, (stage.clientWidth - width * scale) / 2);
+        stage.style.setProperty("--gutter", `${gutter}px`);
+        stage.style.setProperty("--px", String(gutter >= 300 ? 3 : gutter >= 130 ? 2 : 1));
+        stage.dataset.decor = gutter >= 70 ? "on" : "off";
+      }
       // Let CSS choose the alignment unless the console is taller than the stage.
       element.style.alignItems = height * scale + padY > element.clientHeight ? "flex-start" : "";
       const sound = `${state.settings.muted}:${state.settings.volume}`;

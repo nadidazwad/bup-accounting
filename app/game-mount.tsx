@@ -6,6 +6,7 @@ import { useGameState } from "@/src/game/state/use-game-state";
 import { gameStore, type GameSettings, type SceneKey, type Screen, type TextSpeed } from "@/src/game/state/store";
 import { chip } from "@/src/game/audio/chip";
 import { useGameFullscreen } from "./use-game-fullscreen";
+import StageDecor from "./stage-decor";
 
 const GameCanvas = dynamic(() => import("./game-canvas"), {
   ssr: false,
@@ -125,6 +126,7 @@ export default function GameMount() {
           <p className="notch-note">Rafid was here</p>
         </div>
       </div>
+      <StageDecor theme={theme} />
       <section className="screen" aria-label="Game">
         <GameCanvas key={cartridge} />
       </section>

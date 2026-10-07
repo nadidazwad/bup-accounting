@@ -16,6 +16,8 @@ export type GameFlags = {
   guardMoved: boolean;
   fieldHintSeen: boolean;
   brokerLosses: number;
+  /** One-time NPC gifts and events, by id. */
+  received: readonly string[];
 };
 export type Screen = "gba" | "gta";
 export type GameState = {
@@ -44,7 +46,7 @@ export const textSpeedMs: Record<TextSpeed, number> = { slow: (8 / 60) * 1000, m
 const initialState = (): GameState => ({
   scene: "Title", screen: "gba", gameReady: false, playerName: "RED", party: ["Charizard"],
   bag: { POKE_BALL: 10, POTION: 2 }, seen: ["Charizard"], money: 3000, playMs: 0, position: null, savedAt: null,
-  flags: { bushesCut: [], bossBeaten: false, fiveCopsSeen: false, guardMoved: false, fieldHintSeen: false, brokerLosses: 0 },
+  flags: { bushesCut: [], bossBeaten: false, fiveCopsSeen: false, guardMoved: false, fieldHintSeen: false, brokerLosses: 0, received: [] },
   kills: 0, wanted: 0, dialogue: "Press any key to begin.",
   settings: { muted: false, crt: false, reducedMotion: false, volume: 0.5, textSpeed: "mid" },
 });
@@ -85,6 +87,7 @@ export function parseSave(raw: unknown): SaveData | null {
       bossBeaten: f.bossBeaten === true, fiveCopsSeen: f.fiveCopsSeen === true,
       guardMoved: f.guardMoved === true, fieldHintSeen: f.fieldHintSeen === true,
       brokerLosses: Number.isInteger(f.brokerLosses) ? Math.min(9, Math.max(0, f.brokerLosses as number)) : 0,
+      received: Array.isArray(f.received) ? f.received.filter((id): id is string => typeof id === "string").slice(0, 64) : [],
     },
   };
 }
@@ -118,6 +121,7 @@ export function createGameStore(storage: () => Storage | null = () => (typeof lo
       if (!state.party.includes(species)) update({ party: [...state.party, species], seen: state.seen.includes(species) ? state.seen : [...state.seen, species] });
     },
     chooseStarter(starter: Starter) { update({ party: [starter], seen: [...new Set<DexSpecies>([...state.seen.filter((s) => !starters.includes(s as Starter)), starter])] }); },
+    receive(id: string) { if (!state.flags.received.includes(id)) update({ flags: { ...state.flags, received: [...state.flags.received, id] } }); },
     recordLoss() { update({ flags: { ...state.flags, brokerLosses: state.flags.brokerLosses + 1 } }); },
     markSeen(species: DexSpecies) { if (!state.seen.includes(species)) update({ seen: [...state.seen, species] }); },
     swapParty(a: number, b: number) {

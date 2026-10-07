@@ -116,6 +116,7 @@ export class PixelText extends Phaser.GameObjects.Image {
     tex.refresh();
     super(scene, x, y, key);
     this.tex = tex; this.value = text;
+    this.setOrigin(0, 0); // laid out like text: top-left unless told otherwise
     scene.add.existing(this);
     this.once(Phaser.GameObjects.Events.DESTROY, () => { if (scene.textures.exists(key)) scene.textures.remove(key); });
   }
@@ -144,4 +145,20 @@ export class PixelText extends Phaser.GameObjects.Image {
     this.setSizeToFrame(this.tex.get());
     this.updateDisplayOrigin();
   }
+}
+
+/** Word-wraps text for a pixel font so it fits maxWidth once drawn at `scale`. */
+export function wrapPixel(text: string, style: Pick<PixelStyle, "font" | "size">, maxWidth: number, scale = 1) {
+  const ctx = document.createElement("canvas").getContext("2d")!;
+  ctx.font = `${style.font === "smallBold" ? "700 " : ""}${style.size}px ${pixelFamily(style.font ?? "big")}`;
+  const out: string[] = [];
+  for (const paragraph of text.split("\n")) {
+    let line = "";
+    for (const word of paragraph.split(" ")) {
+      const next = line ? `${line} ${word}` : word;
+      if (ctx.measureText(next).width * scale + 6 > maxWidth && line) { out.push(line); line = word; } else line = next;
+    }
+    out.push(line);
+  }
+  return out;
 }

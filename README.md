@@ -37,7 +37,7 @@ Development shortcuts: `?level=1` (town), `?level=battle` (THE BROKER's battle),
 
 ## Where finishing sends players
 
-Finishing the game and choosing YES opens `https://www.bupaf.com/accession`, configured in `src/game/links.ts`. There is no form or backend here: the official event site handles registration.
+Finishing the game and choosing YES opens BUP Accounting Forum's official page, `https://www.facebook.com/bupafofficial/` (`src/game/links.ts`). Set `NEXT_PUBLIC_REGISTRATION_URL` at build time to send players to a dedicated registration page instead. Don't use `bupaf.com`: the forum's old domain lapsed and now serves a gambling site. There is no form or backend here: the official event site handles registration.
 
 ## Checks
 

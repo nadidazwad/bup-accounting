@@ -105,7 +105,11 @@ shutil.copy(R / 'cries/392.ogg', AUDIO / 'cry-infernape.ogg')
 save(indexed(Image.open(G / 'trainers/front_pics/leader_giovanni_front_pic.png'), jasc(G / 'trainers/palettes/leader_giovanni.pal')), 'broker-front.png')
 
 # Overworld NPCs keep their embedded object-event palettes.
-for out, src in {'npc-lass': 'lass', 'npc-youngster': 'youngster', 'npc-guard': 'policeman', 'npc-broker': 'giovanni'}.items():
+NPCS = {'npc-lass': 'lass', 'npc-youngster': 'youngster', 'npc-guard': 'policeman', 'npc-broker': 'giovanni',
+        'npc-scientist': 'scientist', 'npc-gentleman': 'gentleman', 'npc-blackbelt': 'black_belt', 'npc-rocker': 'rocker',
+        'npc-oldman': 'old_man_1', 'npc-worker': 'worker_m', 'npc-cooltrainer': 'cooltrainer_m', 'npc-bugcatcher': 'bug_catcher',
+        'npc-beauty': 'beauty', 'npc-oldwoman': 'old_woman', 'npc-fisher': 'fisher', 'npc-kid': 'gba_kid', 'npc-maniac': 'poke_maniac'}
+for out, src in NPCS.items():
     save(own(G / f'object_events/pics/people/{src}.png').crop((0, 0, 9 * 16, 32)), f'{out}.png')
 
 # Field effects and battle sprites.

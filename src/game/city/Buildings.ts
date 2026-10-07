@@ -69,7 +69,7 @@ export class BuildingRenderer {
       this.boards.push({ def, image: scene.add.image(0, 0, key).setOrigin(0).setDepth(61.1), posts: scene.add.graphics().setDepth(61) });
     });
     this.towerSign = new PixelText(scene, 0, 0, layout.tower.sign ?? "", { size: 40, fill: ["#fff6b0", "#f5c518", "#f5c518", "#c07810"], outline: "#000000", shadow: "#3a2400", shadowOffset: 2 });
-    this.towerSign.setDepth(61.5);
+    this.towerSign.setOrigin(0.5).setDepth(61.5);
   }
 
   /** cx, cy: camera centre in world px. zoom: world zoom relative to 1. halfW/H: half extents of the visible area. */

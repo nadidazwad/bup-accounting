@@ -22,7 +22,8 @@ export const assetManifest = {
     bag: { key: "bag", path: frlg("bag.png"), frameWidth: 64, frameHeight: 64 },
     types: { key: "types", path: frlg("types.png"), frameWidth: 32, frameHeight: 12 },
     redBack: { key: "red-back", path: frlg("red-back.png"), frameWidth: 64, frameHeight: 64 },
-    npcs: ["npc-lass", "npc-youngster", "npc-guard", "npc-broker"].map((key) => ({ key, path: frlg(`${key}.png`), frameWidth: 16, frameHeight: 32 })),
+    npcs: ["npc-lass", "npc-youngster", "npc-guard", "npc-broker", "npc-scientist", "npc-gentleman", "npc-blackbelt", "npc-rocker", "npc-oldman",
+      "npc-worker", "npc-cooltrainer", "npc-bugcatcher", "npc-beauty", "npc-oldwoman", "npc-fisher", "npc-kid", "npc-maniac"].map((key) => ({ key, path: frlg(`${key}.png`), frameWidth: 16, frameHeight: 32 })),
     images: ["arrow-down", "stars", "healthbox-enemy", "battle-bg", "battle-box", "party-bg", "party-slots", "bag-bg", "naming-bg", "oak-bg", "oak-platform", "title-mon", "prof", "red-full", "broker-front",
       "item-potion", "item-pokeball"].map((key) => ({ key, path: frlg(`${key}.png`) })),
     mons: monKeys.map((key) => ({

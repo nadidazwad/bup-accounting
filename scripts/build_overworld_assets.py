@@ -116,7 +116,7 @@ def rect(layer,x,y,w,h,i):
 def obj(name,kind,x,y,w=1,h=1,**props):
  objects.append(dict(id=len(objects)+1,name=name,type=kind,x=x*16,y=y*16,width=w*16,height=h*16,properties=[dict(name=k,type='string' if isinstance(v,str) else 'int',value=v) for k,v in props.items()]))
 # Dotted Pallet paths connect a long loop to the northern ledge clearing.
-rect(ground,8,14,3,15,662);rect(ground,8,23,26,3,662);rect(ground,16,7,3,18,662);rect(ground,4,7,15,3,662);rect(ground,21,6,3,8,662);put(ground,22,5,662)
+rect(ground,8,16,3,13,662);rect(ground,8,23,26,3,662);rect(ground,16,7,3,18,662);rect(ground,4,7,15,3,662);rect(ground,21,6,3,8,662);put(ground,22,5,662)
 # M3: the Auditor's clearing north of the fence.
 rect(ground,17,2,11,3,662)
 for x,y,w,h in [(4,12,6,4),(24,12,6,6),(5,5,7,3)]:rect(ground,x,y,w,h,10);rect(grass,x,y,w,h,10)
@@ -147,6 +147,12 @@ obj('broker','npc',22,2,sprite='npc-broker',facing='down')
 obj('lass','npc',25,24,sprite='npc-lass',facing='left',wander=2,message='Have you heard? BUPAF is the event of the year! I already filed my outfit as a business expense.')
 obj('youngster','npc',23,17,sprite='npc-youngster',facing='left',wander=1,message='My RATTATA is in the top 1% of RATTATA… for expense reports.')
 put(decor,20,6,sign_tile);put(collision,20,6,0);obj('counter','talk',20,6,message='@counter')
+# More townsfolk. Their lines and little scripts live in src/game/overworld/dialogue.ts.
+for name,sprite,x,y,facing in [('aide','npc-scientist',29,11,'up'),('investor','npc-gentleman',26,6,'down'),('blackbelt','npc-blackbelt',12,14,'right'),
+    ('rocker','npc-rocker',35,23,'left'),('oldman','npc-oldman',15,21,'down'),('worker','npc-worker',30,3,'left'),
+    ('cooltrainer','npc-cooltrainer',19,14,'left'),('bugcatcher','npc-bugcatcher',12,6,'down'),('beauty','npc-beauty',26,8,'left'),
+    ('grandma','npc-oldwoman',11,18,'left'),('fisher','npc-fisher',30,24,'up'),('kid','npc-kid',7,24,'down'),('maniac','npc-maniac',5,8,'right')]:
+ obj(name,'npc',x,y,sprite=sprite,facing=facing)
 # Revision 2: PIKACHU and VENUSAUR hide in the tall grass. Walking within two
 # tiles makes them pop out and start a wild battle. Venusaur is in the north-west
 # patch above the ledge, so it needs the long way round.

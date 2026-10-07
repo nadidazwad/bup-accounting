@@ -6,12 +6,13 @@ import { FRLG } from "../style/frlg";
 import { OverworldMovement } from "../overworld/movement";
 import { destination, directionTo, findPath, sameTile, tileKey, vectors, walkable, type Direction, type Grid, type Tile } from "../overworld/navigation";
 import { Npc } from "../overworld/npc";
+import { npcScripts, objectJokes, type ScriptApi } from "../overworld/dialogue";
 import { species as speciesData } from "../data/species";
 import { chip } from "../audio/chip";
 import { TextBox } from "../ui/TextBox";
 import { Menu, UiStack, askYesNo } from "../ui/Menu";
 import { Window } from "../ui/Window";
-import { label, type Ink } from "../ui/text";
+import { label, measure, type Ink } from "../ui/text";
 import { flash, playCry, reducedMotion, snapshotTexture, tween, wait } from "./helpers";
 
 type TalkTarget = { tile: Tile; message: string };
@@ -40,6 +41,10 @@ export class OverworldScene extends Scene {
   private targets: TalkTarget[] = [];
   private hidden: Hidden[] = [];
   private npcs = new Map<string, Npc>();
+  private treeTiles = new Set<string>();
+  private pondTiles = new Set<string>();
+  /** How many times each NPC or object kind has been talked to, so lines rotate. */
+  private visits = new Map<string, number>();
   private structures!: Tilemaps.TilemapLayer | Tilemaps.TilemapGPULayer;
   private grass!: Set<string>;
   private pendingTalk: Tile | null = null;
@@ -55,7 +60,7 @@ export class OverworldScene extends Scene {
   create() {
     gameStore.setScene("Overworld");
     this.scale.setGameSize(FRLG.width, FRLG.height);
-    this.path = []; this.targets = []; this.hidden = []; this.npcs = new Map(); this.ui = new UiStack();
+    this.path = []; this.targets = []; this.hidden = []; this.npcs = new Map(); this.treeTiles = new Set(); this.pondTiles = new Set(); this.visits = new Map(); this.ui = new UiStack();
     this.pendingTalk = null; this.lastTelemetry = 0; this.locked = false; this.grassEffects = new Map();
     const state = gameStore.getSnapshot();
     const map = this.make.tilemap({ key: "town" });
@@ -81,6 +86,10 @@ export class OverworldScene extends Scene {
         // by their feet, so a nearer crown covers the row behind it.
         const bottom = (object.y ?? 0) + (object.height ?? 48);
         this.add.image(tile.x * 16, bottom, "tree").setOrigin(0, 1).setDepth(bottom - 8);
+        for (let dx = 0; dx < 2; dx++) for (let dy = 1; dy < 3; dy++) this.treeTiles.add(tileKey({ x: tile.x + dx, y: tile.y + dy }));
+      }
+      if (object.type === "water") {
+        for (let dx = 0; dx < Math.round((object.width ?? 16) / 16); dx++) for (let dy = 0; dy < Math.round((object.height ?? 16) / 16); dy++) this.pondTiles.add(tileKey({ x: tile.x + dx, y: tile.y + dy }));
       }
       if (object.type === "flower" || object.type === "water") {
         const key = object.type;
@@ -231,7 +240,58 @@ export class OverworldScene extends Scene {
     const npc = [...this.npcs.values()].find(n => sameTile(n.tile, ahead) && !n.moving);
     if (npc) { void this.run(() => this.talkTo(npc)); return; }
     const target = this.targets.find(t => sameTile(t.tile, ahead));
-    if (target) void this.run(() => this.say(target.message === "@counter" ? this.counterText() : target.message));
+    if (target) { void this.run(() => this.say(target.message === "@counter" ? this.counterText() : target.message)); return; }
+    // Scenery jokes: whatever solid thing you're facing has something to say.
+    const index = this.structures.getTileAt(ahead.x, ahead.y)?.index ?? 0;
+    const key = tileKey(ahead);
+    const kind: keyof typeof objectJokes | null = index === 160 ? "boulder" : index === 362 ? "post" : this.pondTiles.has(key) ? "pond"
+      : this.treeTiles.has(key) ? "tree" : this.movement.grid.ledges.has(key) ? "ledge" : null;
+    if (!kind) return;
+    const lines = objectJokes[kind], visit = this.visits.get(kind) ?? 0;
+    this.visits.set(kind, visit + 1);
+    void this.run(() => this.say(lines[visit % lines.length]));
+  }
+
+  /** The bits of the overworld an NPC script may use (src/game/overworld/dialogue.ts). */
+  private scriptApi(npc: Npc, ink: Ink): ScriptApi {
+    const s = gameStore.getSnapshot();
+    return {
+      say: (text) => this.say(text, ink),
+      ask: (text) => this.ask(text, ink),
+      choose: (text, options) => this.askChoice(text, options, ink),
+      emote: () => this.emote(npc.sprite.x, npc.sprite.y - 30),
+      shake: () => { if (!reducedMotion()) this.cameras.main.shake(260, 0.012); },
+      sfx: (name) => chip.sfx(name),
+      jingle: (name) => chip.play(name),
+      wait: (ms) => wait(this, ms),
+      give: async (item, count = 1) => {
+        gameStore.addItem(item, count);
+        chip.play("itemGet");
+        const name = item === "POTION" ? "POTION" : "POKé BALL";
+        await this.say(`${s.playerName} received ${count > 1 ? `${count} ${name}S` : `a ${name}`}!`);
+        await this.say(`${s.playerName} put ${count > 1 ? "them" : "it"} away in the BAG.`);
+      },
+      received: (id) => gameStore.getSnapshot().flags.received.includes(id),
+      receive: (id) => gameStore.receive(id),
+      player: s.playerName,
+      party: s.party,
+    };
+  }
+
+  private async askChoice(text: string, options: string[], ink: Ink = "gray") {
+    let release = () => {};
+    const shown = this.textbox.show(text, { ink, keepOpen: true, onClose: () => release() });
+    release = this.ui.push({ handle: (a) => { if (advanceActions.includes(a)) this.textbox.advance(); return true; }, pointer: () => { this.textbox.advance(); return true; } });
+    await shown;
+    const pick = await new Promise<number>((resolve) => {
+      let unregister = () => {};
+      const done = (i: number) => { unregister(); menu.destroy(); resolve(i); };
+      const height = options.length * 16 + 16;
+      const menu: Menu = new Menu(this, { x: 240 - 8 - Math.max(...options.map((o) => measure(this, o))) - 32, y: 112 - height, items: options, onSelect: done, onCancel: () => done(options.length - 1) });
+      unregister = this.ui.push({ handle: (a) => menu.handle(a), pointer: (x, y) => menu.pointer(x, y) });
+    });
+    this.textbox.close();
+    return pick;
   }
   private counterText() {
     const n = gameStore.getSnapshot().party.length;
@@ -261,7 +321,11 @@ export class OverworldScene extends Scene {
       return;
     }
     if (npc.name === "broker") { await this.brokerBattle(npc); return; }
-    await this.say(npc.message, npc.name === "lass" ? "red" : "blue");
+    const script = npcScripts[npc.name];
+    const visit = this.visits.get(npc.name) ?? 0;
+    this.visits.set(npc.name, visit + 1);
+    if (script) await script.run(this.scriptApi(npc, script.ink), visit);
+    else if (npc.message) await this.say(npc.message, "blue");
   }
 
   // ——— POKéMON hiding in the tall grass (PLAN.md Revision 2) ———

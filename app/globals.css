@@ -123,3 +123,114 @@ code { font-size: 12px; }
 }
 .stage[data-fullscreen=native] .screen, .stage[data-fullscreen=viewport] .screen { inset: 40px 8px 8px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* ——— Stickers around the screen ———
+   game-canvas publishes --gutter (the free width beside the screen) and --px (a whole
+   pixel unit for sprites). Each sticker has a Pokémon and a GTA form; .decor-live
+   morphs between them when the level changes. */
+.stage { --px: 2; --gutter: 0px; }
+.decor { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.stage[data-decor=off] .deco { display: none; }
+.deco { position: absolute; top: var(--y); left: calc(var(--gutter) * var(--gx)); width: 0; height: 0; rotate: var(--rot); }
+.deco[data-side=r] { left: calc(100% - var(--gutter) * var(--gx)); }
+.deco-layer { position: absolute; left: 0; top: 0; translate: -50% -50%; transform-origin: center; }
+.deco-idle { display: block; }
+.deco-sprite {
+  display: block; background-size: 100% 100%; background-repeat: no-repeat; image-rendering: pixelated;
+  /* Die-cut sticker: a white border that follows the sprite, and a soft drop shadow. */
+  filter: drop-shadow(calc(var(--px) * 1px) 0 0 #fff) drop-shadow(calc(var(--px) * -1px) 0 0 #fff) drop-shadow(0 calc(var(--px) * 1px) 0 #fff)
+    drop-shadow(0 calc(var(--px) * -1px) 0 #fff) drop-shadow(0 calc(var(--px) * 3px) calc(var(--px) * 4px) #000a);
+}
+.decor[data-form=gta] .deco-gta .deco-sprite { filter: drop-shadow(calc(var(--px) * 1px) 0 0 #f5c518) drop-shadow(calc(var(--px) * -1px) 0 0 #f5c518) drop-shadow(0 calc(var(--px) * 1px) 0 #f5c518)
+    drop-shadow(0 calc(var(--px) * -1px) 0 #f5c518) drop-shadow(0 calc(var(--px) * 3px) calc(var(--px) * 5px) #000c); }
+.deco-walker { background-size: calc(900% ) 100%; background-position: 0 0; animation: deco-walk 1.1s steps(1) infinite; }
+@keyframes deco-walk { 0%, 50% { background-position: 0 0; } 25% { background-position: 37.5% 0; } 75% { background-position: 50% 0; } }
+.deco-icon { background-size: 100% 200%; background-position: 0 0; animation: deco-hop .5s steps(1) infinite; }
+@keyframes deco-hop { 50% { background-position: 0 100%; } }
+.decor[data-form=pokemon] .deco-pokemon .deco-idle { animation: deco-bob 2.4s steps(2) infinite; animation-delay: var(--jitter); }
+@keyframes deco-bob { 50% { translate: 0 calc(var(--px) * -2px); } }
+.decor[data-form=gta] .deco-gta .deco-idle { animation: deco-sway 3.2s ease-in-out infinite; animation-delay: calc(var(--jitter) * -1); }
+@keyframes deco-sway { 50% { rotate: 3deg; translate: 0 calc(var(--px) * -1px); } }
+
+/* Which form shows when nothing is animating (also the reduced-motion result). */
+.decor[data-form=pokemon] .deco-gta, .decor[data-form=gta] .deco-pokemon { opacity: 0; visibility: hidden; }
+.decor-live[data-form=gta] .deco-pokemon, .decor-live[data-form=pokemon] .deco-gta { animation: deco-out .7s steps(7, jump-none) var(--delay) both; }
+.decor-live[data-form=gta] .deco-gta, .decor-live[data-form=pokemon] .deco-pokemon { animation: deco-in .8s cubic-bezier(.3, 1.6, .5, 1) calc(var(--delay) + .5s) both; }
+.decor-live .deco-poof { animation: deco-poof .6s ease-out calc(var(--delay) + .4s) both; }
+@keyframes deco-out {
+  0% { opacity: 1; visibility: visible; scale: 1; rotate: 0deg; filter: none; }
+  25% { scale: 1.12 .88; rotate: -6deg; }
+  60% { opacity: 1; visibility: visible; scale: .7; rotate: 40deg; filter: blur(1px) saturate(2.5) hue-rotate(90deg); }
+  100% { opacity: 0; visibility: hidden; scale: .1; rotate: 180deg; filter: blur(3px) saturate(3) hue-rotate(180deg); }
+}
+@keyframes deco-in {
+  0% { opacity: 0; visibility: visible; scale: .1; rotate: -120deg; filter: blur(3px) contrast(1.4); }
+  40% { opacity: 1; filter: none; }
+  100% { opacity: 1; visibility: visible; scale: 1; rotate: 0deg; }
+}
+/* A burst of square pixels marks each swap: sparkles one way, sparks and cash-gold the other. */
+.deco-poof {
+  position: absolute; left: 0; top: 0; width: calc(var(--px) * 3px); height: calc(var(--px) * 3px); translate: -50% -50%; opacity: 0; color: #fff6b0;
+  --d: calc(var(--px) * 22px);
+  box-shadow: var(--d) 0, calc(var(--d) * -1) 0, 0 var(--d), 0 calc(var(--d) * -1), calc(var(--d) * .7) calc(var(--d) * .7), calc(var(--d) * -.7) calc(var(--d) * .7),
+    calc(var(--d) * .7) calc(var(--d) * -.7), calc(var(--d) * -.7) calc(var(--d) * -.7);
+}
+.decor[data-form=gta] .deco-poof { color: #f5c518; }
+.decor[data-form=pokemon] .deco-poof { color: #7fd0ff; }
+@keyframes deco-poof { 0% { opacity: 0; scale: .2; } 20% { opacity: 1; } 100% { opacity: 0; scale: 1.6; } }
+
+/* While the cartridge breaks, the stickers tear with it: chromatic offsets and jumps, no flashing. */
+.decor[data-theme=glitch] .deco-layer { filter: drop-shadow(-3px 0 0 #ff2a6d88) drop-shadow(3px 0 0 #2affe688); animation: deco-glitch 1.9s steps(1) infinite; animation-delay: calc(var(--jitter) * -1); }
+@keyframes deco-glitch { 0%, 100% { translate: -50% -50%; } 18% { translate: calc(-50% + 6px) -50%; } 22% { translate: calc(-50% - 4px) calc(-50% + 2px); } 26% { translate: -50% -50%; } 64% { translate: calc(-50% - 7px) -50%; skew: 8deg 0; } 68% { translate: -50% -50%; skew: 0deg 0; } }
+
+/* Text stickers. Pokémon ones borrow the FRLG text box and healthbox; GTA ones the HUD. */
+.tx { display: block; white-space: nowrap; line-height: 1.35; box-shadow: 0 calc(var(--px) * 3px) calc(var(--px) * 5px) #000a; }
+.tx-box {
+  font-family: var(--font-pixel); font-size: calc(var(--px) * 4px); color: #484850; text-shadow: calc(var(--px) * .5px) calc(var(--px) * .5px) 0 #d0d0c8;
+  background: #f8f8f8; padding: calc(var(--px) * 5px) calc(var(--px) * 6px); border-radius: calc(var(--px) * 3px);
+  border: calc(var(--px) * 1.5px) solid #6888a8; outline: calc(var(--px) * 1px) solid #fff; outline-offset: calc(var(--px) * 1px);
+}
+.tx-catch {
+  font-family: var(--font-pixel); font-size: calc(var(--px) * 6px); color: #ffcb05; text-align: center; line-height: 1.5; padding: calc(var(--px) * 5px) calc(var(--px) * 6px);
+  background: #2a75bb; border-radius: calc(var(--px) * 5px); border: calc(var(--px) * 2px) solid #fff;
+  text-shadow: calc(var(--px) * 1px) 0 #1d4f84, calc(var(--px) * -1px) 0 #1d4f84, 0 calc(var(--px) * 1px) #1d4f84, 0 calc(var(--px) * -1px) #1d4f84, 0 calc(var(--px) * 2px) #1d4f84;
+}
+.tx-hp {
+  font-family: var(--font-pixel); font-size: calc(var(--px) * 4px); color: #404040; background: #f8f8d8; padding: calc(var(--px) * 4px) calc(var(--px) * 6px);
+  border: calc(var(--px) * 1.5px) solid #404040; border-radius: calc(var(--px) * 4px) 0 calc(var(--px) * 4px) 0; outline: calc(var(--px) * 1px) solid #fff;
+}
+.tx-hp b { display: block; font-weight: 400; } .tx-hp small { font-size: 1em; margin-left: .6em; }
+.tx-hp .hp { display: flex; align-items: center; gap: calc(var(--px) * 2px); margin-top: calc(var(--px) * 2px); }
+.tx-hp .hp i { font-style: normal; color: #f8b000; font-size: .8em; background: #404040; padding: 0 .3em; }
+.tx-hp .hp span { display: block; width: calc(var(--px) * 40px); height: calc(var(--px) * 3px); background: #506858; border: calc(var(--px) * .5px) solid #404040; }
+.tx-hp .hp em { display: block; height: 100%; width: 72%; background: #70f8a8; }
+.tx-pager {
+  font-family: var(--font-gta-small), var(--font-ui); font-size: calc(var(--px) * 5px); color: #1d2a0c; display: flex; flex-direction: column;
+  background: #9cbf3a; padding: calc(var(--px) * 3px) calc(var(--px) * 5px); border-radius: calc(var(--px) * 2px);
+  border: calc(var(--px) * 4px) solid #1c1c22; outline: calc(var(--px) * 1px) solid #f5c518; box-shadow: inset 0 0 0 calc(var(--px) * 1px) #6e8a22, 0 calc(var(--px) * 3px) calc(var(--px) * 5px) #000a;
+}
+.tx-pager b { font-weight: 400; }
+.tx-wasted, .tx-dollar {
+  font-family: var(--font-gta), var(--font-ui); font-size: calc(var(--px) * 22px); line-height: .9; letter-spacing: .03em; color: #e02a2a; box-shadow: none;
+  -webkit-text-stroke: calc(var(--px) * 1.5px) #000; paint-order: stroke fill;
+  text-shadow: 0 calc(var(--px) * 2px) 0 #000, 0 calc(var(--px) * 4px) calc(var(--px) * 6px) #000a;
+}
+.tx-dollar { color: #5aaa52; font-size: calc(var(--px) * 26px); }
+.tx-wanted {
+  font-family: var(--font-gta), var(--font-ui); font-size: calc(var(--px) * 10px); color: #f5c518; text-align: center; line-height: 1;
+  background: #101014; padding: calc(var(--px) * 3px) calc(var(--px) * 5px) calc(var(--px) * 4px); border: calc(var(--px) * 1px) solid #f5c518; border-radius: calc(var(--px) * 2px);
+}
+.tx-wanted b { display: block; font-weight: 400; letter-spacing: .12em; }
+.tx-wanted span { display: flex; gap: calc(var(--px) * 1px); margin-top: calc(var(--px) * 2px); }
+.deco-star { display: block; width: calc(var(--px) * 9px); height: calc(var(--px) * 9px); background: currentColor;
+  clip-path: polygon(50% 0, 62% 36%, 100% 36%, 69% 58%, 81% 100%, 50% 75%, 19% 100%, 31% 58%, 0 36%, 38% 36%); }
+
+/* A strip along the bottom: Pallet Town's tree line, then the BROKER CITY skyline. */
+.horizon { position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--px) * 48px); overflow: hidden; }
+.horizon-layer { position: absolute; inset: 0; background-repeat: repeat-x; background-position: center bottom; image-rendering: pixelated; }
+.horizon-pokemon { background-image: url(/assets/frlg/tree.png); background-size: calc(var(--px) * 32px) calc(var(--px) * 64px); opacity: .32; top: auto; height: calc(var(--px) * 64px); bottom: calc(var(--px) * -16px); }
+.horizon-gta { background-image: url(/assets/decor/skyline.svg); background-size: calc(var(--px) * 160px) calc(var(--px) * 48px); opacity: .9; }
+.decor[data-form=pokemon] .horizon-gta { translate: 0 100%; }
+.decor[data-form=gta] .horizon-pokemon { translate: 0 100%; }
+.decor-live .horizon-layer { transition: translate .9s steps(9, jump-none); }
+.decor-live[data-form=gta] .horizon-gta, .decor-live[data-form=pokemon] .horizon-pokemon { transition-delay: .7s; }

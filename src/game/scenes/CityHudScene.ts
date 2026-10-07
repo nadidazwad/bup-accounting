@@ -62,8 +62,9 @@ export class CityHudScene extends Phaser.Scene {
 
     // Lives and armour, bottom-left.
     this.add.image(10, H - 30, "heart").setOrigin(0).setScale(2);
-    this.add.image(32, H - 30, "infinity").setOrigin(0).setScale(2);
-    this.shield = this.add.image(68, H - 32, "shield").setOrigin(0).setScale(2);
+    // Lives never run out here (there's no game over), so the counter is a classic x99.
+    new PixelText(this, 32, H - 34, "x99", { size: 20, fill: WHITE, outline: "#000000", shadow: "#202020" }).setOrigin(0, 0);
+    this.shield = this.add.image(72, H - 32, "shield").setOrigin(0).setScale(2);
     this.armour = this.add.graphics();
 
     this.radioText = new PixelText(this, W / 2, 46, "", { font: "smallBold", size: 8, fill: ["#c8ffff", "#3ee6ff"], outline: "#002a30", shadow: "#000000" }).setOrigin(0.5, 0).setScale(2).setVisible(false);
@@ -165,7 +166,7 @@ export class CityHudScene extends Phaser.Scene {
     this.shield.setVisible(health !== null);
     if (health === null) return;
     // Ten chunky segments.
-    const x = 92, y = H - 28, segs = 10;
+    const x = 96, y = H - 28, segs = 10;
     this.armour.fillStyle(0x000000, 1).fillRect(x - 2, y - 2, segs * 8 + 2, 14);
     const lit = Math.ceil((Math.max(0, health) / 100) * segs);
     const color = health > 60 ? 0x3aa8ff : health > 30 ? 0xf5c518 : 0xe8262b;

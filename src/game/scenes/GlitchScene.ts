@@ -1,7 +1,8 @@
 import Phaser from "phaser";
 import { gameStore } from "../state/store";
 import { chip } from "../audio/chip";
-import { GTA2, gtaFontFamily, loadGtaFont } from "../style/gta2";
+import { GTA2, loadGtaFont } from "../style/gta2";
+import { PixelText, type PixelStyle } from "../ui/pixelText";
 import { bindInput, reducedMotion, snapshotTexture, wait } from "./helpers";
 import { Window } from "../ui/Window";
 import { label } from "../ui/text";
@@ -19,6 +20,7 @@ import { FlashLimiter } from "../city/flash";
 const STRIPS = 20;
 const CHANNELS = [0xff0000, 0x00ff00, 0x0000ff];
 const SNAP = "glitch-snap";
+const WHITE_BANDS = ["#ffffff", "#e8e8e8", "#b8b8c0"];
 
 export class GlitchScene extends Phaser.Scene {
   private strips: Phaser.GameObjects.Image[][] = [];
@@ -200,7 +202,7 @@ export class GlitchScene extends Phaser.Scene {
   private async frontEnd() {
     this.phase = "menu";
     this.start = false; // presses during the glitch don't count; presses from here on do
-    const W = GTA2.width, H = GTA2.height, font = gtaFontFamily();
+    const W = GTA2.width, H = GTA2.height;
     const calm = reducedMotion();
     // Backdrop: BROKER CITY from very high up, drifting, darkened.
     ensureCityTextures(this);
@@ -216,50 +218,63 @@ export class GlitchScene extends Phaser.Scene {
     scan.fillStyle(0x000000, 0.25);
     for (let y = 0; y < H; y += 3) scan.fillRect(0, y, W, 1);
 
-    const text = (x: number, y: number, value: string, size: number, color: string, stroke = 6, strokeColor = "#000000") =>
-      this.add.text(x, y, value, { fontFamily: font, fontSize: `${size}px`, color, stroke: strokeColor, strokeThickness: stroke, resolution: GTA2.render });
+    const GOLD = ["#fffbd0", "#ffe060", "#f5c518", "#e09a10", "#b86a08"];
+    const pt = (x: number, y: number, value: string, style: PixelStyle) => new PixelText(this, x, y, value, { outline: "#000000", ...style });
 
-    // Logo: an original red-and-yellow wordmark in the GTA 2 spirit.
-    const logo = this.add.container(W * 0.36, 128);
+    // Logo: an original red-and-yellow wordmark in the GTA 2 spirit, set in
+    // block-scaled pixel type (no rotation, so every pixel stays square).
+    const logo = this.add.container(Math.round(W * 0.36), 128);
     const banner = this.add.graphics();
-    const shape = [-186, -44, 196, -54, 186, 50, -196, 58];
+    const shape = [-190, -46, 196, -56, 190, 52, -196, 60];
     const path = (dx: number) => { banner.beginPath(); banner.moveTo(shape[0] + dx, shape[1] + dx); for (let i = 2; i < 8; i += 2) banner.lineTo(shape[i] + dx, shape[i + 1] + dx); banner.closePath(); };
-    banner.fillStyle(0x000000, 0.6); path(6); banner.fillPath();
+    banner.fillStyle(0x000000, 0.7); path(6); banner.fillPath();
     banner.fillStyle(0xd8202a, 1); path(0); banner.fillPath();
+    banner.fillStyle(0xa8141c, 1); for (let y = 0; y < 60; y += 4) banner.fillRect(-180, y - 10, 360, 1);
     banner.lineStyle(4, 0xf5c518, 1); path(0); banner.strokePath();
-    const top = text(0, -30, "GRAND THEFT", 30, "#f5c518", 6).setOrigin(0.5);
-    const audit = text(-10, 16, "AUDIT", 74, "#ffe14a", 10, "#3a0508").setOrigin(0.5);
-    const two = text(150, 30, "2", 120, "#ffe14a", 12, "#000000").setOrigin(0.5).setAngle(-8);
-    const disc = this.add.circle(150, 34, 54, 0xd8202a).setStrokeStyle(5, 0xf5c518);
-    logo.add([banner, top, audit, disc, two]).setAngle(-3);
-    if (!calm) { logo.setScale(0.2).setAlpha(0); this.tweens.add({ targets: logo, scale: 1, alpha: 1, duration: 520, ease: "Back.easeOut" }); }
-    const tag = text(W * 0.36, 210, "NOW WITH 100% MORE PAPERWORK", 16, "#ffffff", 4).setOrigin(0.5).setAlpha(0.85);
+    const top = pt(-12, -32, "GRAND THEFT", { size: 20, block: 2, fill: GOLD, shadow: "#3a0508" }).setOrigin(0.5);
+    const audit = pt(-14, 18, "AUDIT", { size: 30, block: 3, fill: ["#fff6a0", "#ffe14a", "#f5b818", "#d07a10"], outline: "#3a0508", shadow: "#000000" }).setOrigin(0.5);
+    const disc = this.add.circle(152, 30, 56, 0x000000);
+    const discFill = this.add.circle(150, 28, 54, 0xd8202a).setStrokeStyle(4, 0xf5c518);
+    const two = pt(150, 30, "2", { size: 40, block: 3, fill: GOLD, shadow: "#3a0508" }).setOrigin(0.5);
+    logo.add([banner, top, audit, disc, discFill, two]);
+    if (!calm) {
+      // A stepped zoom-in, three frames, like an old intro.
+      logo.setScale(0.33);
+      this.time.delayedCall(80, () => logo.setScale(0.66));
+      this.time.delayedCall(160, () => logo.setScale(1.1));
+      this.time.delayedCall(240, () => logo.setScale(1));
+    }
+    pt(Math.round(W * 0.36), 214, "NOW WITH 100% MORE PAPERWORK", { font: "smallBold", size: 8, fill: "#ffffff" }).setOrigin(0.5).setScale(2);
     chip.play("frontend");
 
-    // Menu panel, right.
+    // Menu panel, right: a bevelled 90s box.
     const panel = this.add.graphics();
-    panel.fillStyle(0x000000, 0.72).fillRect(W - 236, 236, 216, 196);
-    panel.lineStyle(2, 0xf5c518, 1).strokeRect(W - 236, 236, 216, 196);
-    const items = [text(W - 220, 250, "▶ START PLAY", 24, "#f5c518", 4), text(W - 220, 284, "OPTIONS", 20, "#6a6a6a", 3), text(W - 220, 310, "QUIT TO SPREADSHEET", 20, "#6a6a6a", 3)];
-    void items;
-    text(W - 220, 346, "DISTRICT:", 16, "#ffffff", 3);
-    const downtown = text(W - 220, 366, "DOWNTOWN", 24, "#ffffff", 4);
-    const strike = this.add.rectangle(W - 222, downtown.y + downtown.height * 0.55, 0, 4, 0xd8202a).setOrigin(0, 0.5);
-    const city = text(W - 220, 396, "", 24, "#3ee6ff", 4);
-    const prompt = text(W / 2, H - 34, "", 18, "#ffffff", 4).setOrigin(0.5);
+    const mx = W - 240, my = 236, mw = 220, mh = 200;
+    panel.fillStyle(0x000000, 0.85).fillRect(mx, my, mw, mh);
+    panel.fillStyle(0xf5c518, 1).fillRect(mx, my, mw, 2).fillRect(mx, my + mh - 2, mw, 2).fillRect(mx, my, 2, mh).fillRect(mx + mw - 2, my, 2, mh);
+    panel.fillStyle(0x6a5208, 1).fillRect(mx + 2, my + mh - 4, mw - 4, 2).fillRect(mx + mw - 4, my + 2, 2, mh - 4);
+    panel.fillStyle(0xf5c518, 1).fillTriangle(mx + 14, my + 16, mx + 14, my + 32, mx + 24, my + 24);
+    pt(mx + 32, my + 10, "START PLAY", { size: 30, fill: GOLD, shadow: "#2a1600" });
+    pt(mx + 32, my + 46, "OPTIONS", { size: 20, fill: ["#8a8a8a", "#5a5a5a"] });
+    pt(mx + 32, my + 70, "QUIT TO SPREADSHEET", { size: 20, fill: ["#8a8a8a", "#5a5a5a"] });
+    pt(mx + 16, my + 106, "DISTRICT:", { font: "smallBold", size: 8, fill: "#ffffff" }).setScale(2);
+    const downtown = pt(mx + 16, my + 126, "DOWNTOWN", { size: 30, fill: WHITE_BANDS });
+    const strike = this.add.rectangle(mx + 14, Math.round(downtown.y + downtown.height * 0.5), 0, 4, 0xe8262b).setOrigin(0, 0.5);
+    const city = pt(mx + 36, my + 160, "", { size: 30, fill: ["#d0ffff", "#3ee6ff", "#1a9ab0"] });
     const touch = typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches;
-    prompt.setText(touch ? "TAP TO START" : "PRESS E OR SPACE TO START");
+    const prompt = pt(W / 2, H - 22, touch ? "TAP TO START" : "PRESS E OR SPACE TO START", { font: "smallBold", size: 8, fill: GOLD }).setOrigin(0.5).setScale(2);
     gameStore.say("GRAND THEFT AUDIT 2. District: Downtown, now Broker City. Press E to start.");
     this.game.canvas.dataset.glitch = "menu";
 
     // District select: DOWNTOWN gets struck through and BROKER CITY types in.
     if (!this.start) await wait(this, 900);
     chip.sfx("cursor");
-    await new Promise<void>((resolve) => this.tweens.add({ targets: strike, width: downtown.width + 4, duration: calm ? 1 : 300, onComplete: () => resolve() }));
-    downtown.setColor("#7a7a7a");
-    this.add.triangle(W - 214, 410, 0, 0, 12, 7, 0, 14, 0x3ee6ff).setOrigin(0, 0.5);
-    city.setX(W - 196);
-    for (const ch of "BROKER CITY") { city.setText(city.text + ch); if (this.start) continue; if (ch !== " ") chip.sfx("type"); await wait(this, 55); }
+    // The strike-through draws in whole steps, not a smooth tween.
+    for (let i = 1; i <= 6; i++) { strike.width = ((downtown.width + 4) * i) / 6; if (!this.start && !calm) await wait(this, 45); }
+    downtown.setStyle({ fill: ["#7a7a7a", "#5a5a5a"] });
+    this.add.triangle(mx + 16, city.y + 16, 0, 0, 12, 7, 0, 14, 0x3ee6ff).setOrigin(0, 0.5);
+    let typed = "";
+    for (const ch of "BROKER CITY") { typed += ch; city.setText(typed); if (this.start) continue; if (ch !== " ") chip.sfx("type"); await wait(this, 55); }
     // A slow 1 Hz blink on a small prompt (well inside the flash limits).
     const blink = this.time.addEvent({ delay: 500, loop: true, callback: () => prompt.setVisible(calm || !prompt.visible) });
     await new Promise<void>((resolve) => {
@@ -273,7 +288,6 @@ export class GlitchScene extends Phaser.Scene {
     delete this.game.canvas.dataset.glitch;
     this.cameras.main.fadeOut(450, 0, 0, 0);
     await wait(this, 500);
-    void tag;
     this.scene.start("City", { intro: true });
   }
 }

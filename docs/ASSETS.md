@@ -16,7 +16,7 @@ The loader resolves every runtime path through `src/game/assets.manifest.ts`. Th
 | textbox.png | Native menu_message.png and stdpal_0.pal. Assembled with the rounded field-dialogue border algorithm in src/new_menu_helpers.c. |
 | charizard.png | [overworld-spawn-mod source sheet](https://github.com/YoDrehDenSwagAuf/overworld-spawn-mod/blob/main/assets/enhanced_overworld/followsprites/006-b-n.png), HGSS-derived 32×32 directional frames, reduced to 16×16 with nearest-neighbour sampling for the one-tile GBA follower. Original art remains owned by its rights holders. |
 | charizard.ogg | [PokeAPI legacy cry](https://github.com/PokeAPI/cries/blob/main/cries/pokemon/legacy/6.ogg). |
-| town.tmj | Original 40×30 Tiled JSON authored for this map. The office reconstructs the full five-row Pallet house, including both roof rows and its correct door/window order. Collision, grass, spawn, tree footprints, ledges and talk targets live in the map. M3 objects identify two captures, six decoys, the guard, the Auditor and two wandering NPCs. |
+| town.tmj | Original 40×30 Tiled JSON authored for this map. The office reconstructs the full five-row Pallet house, including both roof rows and its correct door/window order. Collision, grass, spawn, tree footprints, ledges and talk targets live in the map. Objects identify the two hidden Pokémon, the guard, THE BROKER and two wandering NPCs. Props reuse native Pallet metatiles: path verges (654/655/663/670/671/678/686/694 and inner corners 702/703/710/711), Oak's lab (680–728), the plaza (357–359, 373–375), the mailbox (685), posts (361), a sign (360) and boulders (159). |
 
 Exact source URLs for every downloaded image and palette are saved in `reference/SOURCES.md` and `reference/native-sources/sources.json`. `scripts/build_overworld_assets.py` rebuilds prepared images and the map from those local sources. Run it with `python -I scripts/build_overworld_assets.py`.
 
@@ -52,12 +52,12 @@ Level 2's city art is procedural and original. Its radio now plays the user-prov
 
 | Runtime content | Source |
 | --- | --- |
-| City tiles (asphalt, lane dashes, zebra crossings, kerbs, car parks, grass, plaza, water), cars (sedan, sport, van, taxi and police, with dented and wrecked variants and light-bar frames), office-worker, cop and player peds, splats, receipts, smoke, fire, glow, scorch, trees, the objective arrow, cop heads, heart, shield | Original procedural art, drawn into canvases at runtime by `src/game/city/textures.ts` at 2× resolution. |
+| City tiles (asphalt, lane dashes, zebra crossings, kerbs, car parks, grass, plaza, water), cars (sedan, sport, van, taxi and police, with dented and wrecked variants and light-bar frames), office-worker, cop and player peds, splats, receipts, smoke, fire, glow, scorch, trees, the objective arrow, cop heads, heart, shield | Original procedural art, drawn as pixel art into canvases at runtime by `src/game/city/textures.ts` (one texel per world pixel). This includes the roof textures and the pixel-art pager, cop heads, heart and shield. |
 | Buildings, roofs, windows, billboards, tower sign | Drawn every frame by `src/game/city/Buildings.ts` (pseudo-3D projection). The billboard slogans are original jokes. |
-| "GRAND THEFT AUDIT 2" logo and front end | Original vector wordmark and layout in `GlitchScene.ts`, set in Anton. It is not the GTA logo. |
+| "GRAND THEFT AUDIT 2" logo and front end | Original wordmark and layout in `GlitchScene.ts`, set in block-scaled Jersey 10 pixel type. It is not the GTA logo. |
 | Glitch transition | Effects applied to a runtime capture of the player's own Level 1 frame, plus tiles from the existing route-A town tileset. |
 | Finale portrait | Reuses the route-A `broker-front.png` (see above), tinted at runtime. |
-| HUD and message font | [Anton](https://fonts.google.com/specimen/Anton) (SIL Open Font License 1.1), loaded with `next/font/google` as `--font-gta`. The pager LCD reuses Press Start 2P (OFL). |
+| HUD, menu and message fonts | [Jersey 10](https://fonts.google.com/specimen/Jersey+10) (`--font-gta`) and [Silkscreen](https://fonts.google.com/specimen/Silkscreen) (`--font-gta-small`), both under the SIL Open Font License 1.1 and loaded with `next/font/google`. They're rendered to the native pixel grid by `src/game/ui/pixelText.ts`. |
 | Front-end, briefing, frenzy, job-done and busted music; engine, siren, horn, crash, thud, explosion, car-door, static, pager and boot sounds | Original compositions and patches in `src/game/audio/tracks.ts` and `chip.ts`, synthesised with Web Audio. |
 
 ## Downloaded music (7 Oct 2026)
@@ -72,3 +72,4 @@ The user supplied these four MP3s in the project root. Runtime copies preserve t
 | gta-radio-3.mp3 | `GTA Radio Track 3.mp3`, BROKER FM. |
 
 Entering a different car selects the next shuffled station. Each round plays all three songs, with no consecutive repeats between rounds. A song resumes at its saved position when selected again; a finished song starts fresh on its next play. Re-entering the same car keeps its station. R steps through the shuffled songs, offers RADIO OFF at the end of a round, then starts a fresh shuffle. A cartridge restart clears saved playback positions. Download URLs and recording attribution were not supplied.
+| npc-*.png | Native FRLG object-event sheets (embedded palettes), first 9 frames: lass, youngster, policeman (guard), giovanni (THE BROKER), scientist, gentleman, black_belt, rocker, old_man_1, worker_m, cooltrainer_m, bug_catcher, beauty, old_woman, fisher, gba_kid (3 idle frames, so it stays put) and poke_maniac. |
