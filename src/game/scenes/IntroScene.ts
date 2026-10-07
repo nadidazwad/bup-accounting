@@ -3,7 +3,10 @@ import { FRLG } from "../style/frlg";
 import { gameStore } from "../state/store";
 import { chip } from "../audio/chip";
 import { TextBox } from "../ui/TextBox";
-import { Menu, UiStack } from "../ui/Menu";
+import { Menu, UiStack, askYesNo } from "../ui/Menu";
+import { label } from "../ui/text";
+import { species as speciesData } from "../data/species";
+import { starters, type Starter } from "../state/store";
 import { bindInput, fadeOut, markReady, playCry, reducedMotion, tween, wait } from "./helpers";
 
 // PROF. LEDGER's speech, following the beats of the FRLG Oak intro.
@@ -31,12 +34,12 @@ export class IntroScene extends Scene {
   private say(text: string, keepOpen = false) { return this.textbox.show(text, { keepOpen }); }
 
   private async run() {
-    chip.play("route");
+    chip.play("opening");
     this.cameras.main.fadeIn(600, 0, 0, 0);
     const platform = this.add.image(120, 92, "oak-platform").setOrigin(0.5, 0.5);
     const prof = this.add.image(120, 100, "prof").setOrigin(0.5, 1).setAlpha(0);
     await tween(this, { targets: prof, alpha: 1, duration: 500 });
-    await this.say("Hello there! Welcome to the world of BUP ACCOUNTING!");
+    await this.say("Hello there! Welcome to the world of POKéMON!");
     await this.say("My name is LEDGER. People affectionately call me the AUDIT PROFESSOR.");
     // The professor steps aside and sends out a POKéMON, as Oak does with NIDORAN♀.
     const side = this.add.image(176, 100, "oak-platform").setOrigin(0.5, 0.5).setAlpha(0).setScale(0.75, 1);
@@ -76,6 +79,12 @@ export class IntroScene extends Scene {
     await this.say(`Right… So your name is ${finalName}.`);
     await tween(this, { targets: red, alpha: 0, duration: 400 });
     await tween(this, { targets: prof, alpha: 1, duration: 400 });
+    await this.say(`${finalName}! You can’t go out there alone. Take one of these POKéMON as your partner!`);
+    await tween(this, { targets: [prof, platform], alpha: 0, duration: 300 });
+    const starter = await this.chooseStarter();
+    gameStore.chooseStarter(starter);
+    await tween(this, { targets: [prof, platform], alpha: 1, duration: 300 });
+    await this.say(`${speciesData[starter].name} is your partner now. It will follow you everywhere. Even to meetings.`);
     await this.say(`${finalName}! Your very own POKéMON legend is about to unfold!`);
     await this.say("A world of dreams and adventures with POKéMON awaits! Let’s go!");
     await this.say("…Please keep your receipts.");
@@ -89,6 +98,61 @@ export class IntroScene extends Scene {
     chip.stopMusic();
     await fadeOut(this, 600);
     this.scene.start("Overworld");
+  }
+
+  /** Starter choice: three partners on platforms; browse with left/right, confirm with YES. */
+  private async chooseStarter(): Promise<Starter> {
+    const xs = [44, 120, 196];
+    const group = this.add.container(0, 0);
+    const mons = starters.map((s, i) => {
+      group.add(this.add.image(xs[i], 96, "oak-platform").setScale(0.75, 0.8));
+      const mon = this.add.image(xs[i], 104, `front-${speciesData[s].key}`).setOrigin(0.5, 1).setAlpha(0.45);
+      group.add(mon);
+      return mon;
+    });
+    const arrow = label(this, 0, 4, "▼", "red").setOrigin(0.5, 0);
+    group.add(arrow);
+    group.setAlpha(0);
+    await tween(this, { targets: group, alpha: 1, duration: 400 });
+    let index = 0;
+    for (;;) {
+      const pick = await new Promise<number>((resolve) => {
+        const focus = (i: number) => {
+          index = (i + 3) % 3;
+          mons.forEach((m, k) => m.setAlpha(k === index ? 1 : 0.45).setScale(k === index ? 1 : 0.9));
+          arrow.setX(xs[index]);
+          const info = speciesData[starters[index]];
+          playCry(this, info.key);
+          void this.textbox.show(`${info.name}, the ${info.category} POKéMON.\n${info.types.join("/")} type.`, { keepOpen: true });
+        };
+        focus(index);
+        const release = this.ui.push({
+          handle: (a) => {
+            if (a === "left" || a === "right") { chip.sfx("cursor"); focus(index + (a === "left" ? -1 : 1)); }
+            else if (a === "confirm") { chip.sfx("select"); release(); resolve(index); }
+            return true;
+          },
+          pointer: (x) => {
+            const i = x < 82 ? 0 : x < 158 ? 1 : 2;
+            if (i === index) { chip.sfx("select"); release(); resolve(index); } else { chip.sfx("cursor"); focus(i); }
+            return true;
+          },
+        });
+      });
+      const info = speciesData[starters[pick]];
+      this.textbox.close();
+      await this.textbox.show(`So, you want ${info.name}?`, { keepOpen: true });
+      const yes = await askYesNo(this, (h) => this.ui.push(h));
+      this.textbox.close();
+      if (yes) {
+        chip.play("caught");
+        await tween(this, { targets: mons.filter((_, k) => k !== pick), alpha: 0, duration: 300 });
+        await this.say(`${gameStore.getSnapshot().playerName} received ${info.name}!`);
+        await tween(this, { targets: group, alpha: 0, duration: 300 });
+        group.destroy();
+        return starters[pick];
+      }
+    }
   }
 
   private async askName() {

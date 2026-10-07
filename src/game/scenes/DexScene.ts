@@ -7,7 +7,7 @@ import { label, wrap } from "../ui/text";
 import { bindInput, playCry } from "./helpers";
 import { closeOverlay } from "./menuBase";
 
-// The BUP-DEX: only the six species in this story, with accounting entries.
+// The POKéDEX: only the species in this story, with accounting entries.
 export class DexScene extends Scene {
   private index = 0;
   private page: GameObjects.Container | null = null;
@@ -28,11 +28,10 @@ export class DexScene extends Scene {
     label(this, 6, 0, "POKéDEX", "white");
     const s = gameStore.getSnapshot();
     label(this, 234, 1, `SEEN ${s.seen.length}  OWN ${s.party.length}`, "small-white").setOrigin(1, 0);
-    new Window(this, 4, 20, 96, 112);
+    new Window(this, 4, 20, 96, 136);
     this.preview = this.add.container(4, 20);
-    new Window(this, 104, 20, 132, 112);
+    new Window(this, 104, 20, 132, 136);
     this.list = this.add.container(104, 20);
-    label(this, 8, 140, "A: ENTRY   B: BACK", "small-white");
     this.render();
     bindInput(this, (a) => this.onAction(a), (x, y) => this.onPointer(x, y));
   }
@@ -43,11 +42,11 @@ export class DexScene extends Scene {
     const s = gameStore.getSnapshot();
     this.list.removeAll(true); this.preview.removeAll(true);
     dexOrder.forEach((mon, i) => {
-      const info = speciesData[mon], y = 8 + i * 16;
+      const info = speciesData[mon], y = 6 + i * 15;
       this.list.add(label(this, 18, y, `${String(info.dex).padStart(3, "0")} ${this.seen(i) ? info.name : "----------"}`));
       if (s.party.some(owned => owned === mon)) this.list.add(this.add.image(120, y + 7, "ball", 0).setScale(0.5));
     });
-    this.list.add(label(this, 8, 8 + this.index * 16, "▶"));
+    this.list.add(label(this, 8, 6 + this.index * 15, "▶"));
     const mon = dexOrder[this.index], info = speciesData[mon];
     if (this.seen(this.index)) {
       this.preview.add(this.add.image(48, 74, `front-${info.key}`).setOrigin(0.5, 1));
@@ -60,14 +59,14 @@ export class DexScene extends Scene {
 
   private onAction(action: string) {
     if (this.page) { if (["cancel", "confirm", "menu", "start"].includes(action)) this.closePage(); return; }
-    if (action === "up" || action === "down") { this.index = (this.index + (action === "up" ? 5 : 1)) % 6; chip.sfx("cursor"); this.render(); }
+    if (action === "up" || action === "down") { this.index = (this.index + (action === "up" ? dexOrder.length - 1 : 1)) % dexOrder.length; chip.sfx("cursor"); this.render(); }
     else if (["confirm", "start", "interact"].includes(action)) this.entry();
     else if (action === "cancel" || action === "menu") closeOverlay(this, this.from);
   }
   private onPointer(x: number, y: number) {
     if (this.page) { this.closePage(); return; }
-    const i = Math.floor((y - 28) / 16);
-    if (x >= 104 && i >= 0 && i < 6) { this.index = i; this.render(); this.entry(); }
+    const i = Math.floor((y - 26) / 15);
+    if (x >= 104 && i >= 0 && i < dexOrder.length) { this.index = i; this.render(); this.entry(); }
   }
   private closePage() { this.page?.destroy(); this.page = null; chip.sfx("select"); }
 

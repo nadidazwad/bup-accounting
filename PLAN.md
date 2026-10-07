@@ -1,4 +1,28 @@
-# BUP ACCOUNTING: "GRAND THEFT POKÉMON" signup game
+# BUP: "GRAND THEFT POKÉMON" prank-marketing game
+
+## REVISION 2 (7 Oct 2026): these decisions override everything below
+
+The sections after this one are the original spec. Where they conflict with this revision, **this revision wins**.
+
+**Purpose.** This is prank/meme marketing, not a signup app. It gets posted on a BUP meme page. Last year's BUP event was Pokémon-themed, this year's is GTA-themed, so the game plays as a transition from one to the other. Players who finish are **redirected to the official BUP event registration page** (URL supplied later; one constant, `REGISTRATION_URL`). We build **no form, no server action and no sink**.
+
+**Site / UI**
+- No "BUP ACCOUNTING" branding in the page chrome or the title screen. In-game dialogue may keep light accounting jokes.
+- No registration page, no skip-to-registration link.
+- Modern, minimal page: a dark, near-empty stage with the game canvas centred at pixel-exact scale. No handheld console shell and **no on-screen physical buttons**.
+- The page picks up a subtle theme from the current level: Pokémon accents (red/white, ball motif) in Level 1, GTA accents (neon/gold on asphalt) in Level 2.
+- A small **notch** at the top centre of the stage. Hovering it (or tapping it, or focusing it with the keyboard) drops down a controls sheet.
+- Modern keybinds instead of A/B: **WASD/arrows** move, **Shift** run, **E / Space / Enter** interact and confirm, **Esc / Backspace / Q** back, **Tab / M** menu. Touch: tap to walk or interact, tap the text box to advance, tap your character for the menu.
+
+**Level 1 changes**
+- **Starter choice** in the professor's intro: **Charizard, Infernape or Blaziken**. The starter follows you, HGSS-style, at native 32×32 size.
+- The two catchable Pokémon (**Pikachu, Venusaur**) hide **in tall-grass patches**, not behind bushes or trees. Walking within 2 tiles makes them **pop out automatically**, the "!" plays and a **wild battle** starts. You must weaken them, then throw a POKé BALL. Wild Pokémon can't be knocked out: they hang on at 1 HP. No CUT/STRENGTH, no decoy bushes.
+- The villain is **THE BROKER** (formerly "THE AUDITOR"). Same 3v3 team: Caterpie, Bayleef, Blastoise.
+- Music: the **original Pokémon Red/Blue opening (title) theme**, converted from pret/pokered's note data into our chip synth. Route A asset rules apply (§12).
+
+**Ending.** After Level 2 (GTA) is beaten, THE BROKER returns and offers "the next level". Accepting redirects to `REGISTRATION_URL`. Level 3 (briefing + form) and §8 are removed.
+
+---
 
 Build plan for the executing agent (GPT 6.1 sol, reasoning effort: extra high).
 

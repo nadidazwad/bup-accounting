@@ -80,6 +80,10 @@ export class TextBox {
     chip.sfx("select");
     this.close();
   }
+  /** The current page is fully printed and waiting for the reader (not a held prompt). */
+  get pageDone() {
+    return this.open && this.count >= this.current.length && !(this.keepOpen && this.page === this.pages.length - 1);
+  }
   /** Text is fully printed on the last page (used for prompts that sit on screen). */
   get waiting() { return this.open && this.page === this.pages.length - 1 && this.count >= this.current.length; }
   private finish() { const resolve = this.resolve; this.resolve = undefined; resolve?.(); }

@@ -128,14 +128,14 @@ for x in range(4,36,2):
   # Above the arena the northern forest sits one row higher to open a clearing.
   if y==1 and 14<=x<=34:y=-1
   obj('forest','tree',x,y,2,3);rect(collision,x,y+1,2,2,0)
-for x,y in [(12,17),(12,19),(20,17),(20,19),(30,11),(32,11),(30,13),(32,13),(10,3),(12,3),(26,7),(28,7)]:obj('grove','tree',x,y,2,3);rect(collision,x,y+1,2,2,0)
+for x,y in [(12,17),(12,19),(20,17),(20,19),(30,13),(32,13),(10,3),(12,3)]:obj('grove','tree',x,y,2,3);rect(collision,x,y+1,2,2,0)
 # The Pallet house occupies five rows, including both roof rows and the door.
 for yy,row in enumerate([[641,642,642,642,643],[649,650,650,650,651],
                          [657,659,658,658,660],[664,665,666,667,668],
                          [672,675,674,673,676]]):
  for xx,i in enumerate(row):put(decor,4+xx,19+yy,i);put(collision,4+xx,19+yy,0)
 obj('office','talk',5,23,message='The office is closed. Even accountants need an adventure.')
-put(decor,11,24,sign_tile);put(collision,11,24,0);obj('hq-sign','talk',11,24,message='BUP ACCOUNTING HQ: Where every number has a home.')
+put(decor,11,24,sign_tile);put(collision,11,24,0);obj('hq-sign','talk',11,24,message='LEDGER HOUSE: Where every number has a home.')
 obj('spawn','spawn',9,24);obj('follower','spawn',9,25)
 # A one-way ledge separates the north-west clearing from the southern grass.
 for x in range(4,15):put(decor,x,10,151);put(collision,x,10,0);obj('ledge','ledge',x,10,direction='down')
@@ -143,25 +143,61 @@ for x in range(4,15):put(decor,x,10,151);put(collision,x,10,0);obj('ledge','ledg
 for x in range(14,36):
  if x!=22:put(decor,x,5,214);put(collision,x,5,0)
 obj('guard','npc',22,5,sprite='npc-guard',facing='down')
-obj('auditor','npc',22,2,sprite='npc-auditor',facing='down')
+obj('broker','npc',22,2,sprite='npc-broker',facing='down')
 obj('lass','npc',25,24,sprite='npc-lass',facing='left',wander=2,message='Have you heard? BUPAF is the event of the year! I already filed my outfit as a business expense.')
 obj('youngster','npc',23,17,sprite='npc-youngster',facing='left',wander=1,message='My RATTATA is in the top 1% of RATTATA… for expense reports.')
 put(decor,20,6,sign_tile);put(collision,20,6,0);obj('counter','talk',20,6,message='@counter')
-# Two real hiding spots and six decoys. Every spot is solid until it is opened.
-for x,y,kind,spot in [(7,6,'bush','venusaur'),(31,18,'tree','pikachu'),(25,15,'tree','spreadsheet'),(29,25,'tree','potion'),
-                      (14,23,'bush','receipt'),(20,13,'bush','calculator'),(12,8,'bush','tax-form'),(24,20,'bush','invoice')]:
- put(decor,x,y,cut_tree_tile if kind=='tree' else bush_tile);put(collision,x,y,0);obj(spot,'spot',x,y,cover=kind)
- if kind=='bush' and grass[y*W+x]:put(ground,x,y,17);put(grass,x,y,-1)
-# Venusaur's bush sits in a cluster, so it reads as a proper hiding place.
-for x,y in [(6,6),(8,6),(6,5),(8,5)]:
- put(ground,x,y,17);put(grass,x,y,-1)
- put(decor,x,y,bush_tile);put(collision,x,y,0);obj('bush','talk',x,y,message='A sturdy bush. Nothing behind it… except a strong sense of being watched.')
+# Revision 2: PIKACHU and VENUSAUR hide in the tall grass. Walking within two
+# tiles makes them pop out and start a wild battle. Venusaur is in the north-west
+# patch above the ledge, so it needs the long way round.
+obj('venusaur','hidden',7,6,species='Venusaur')
+obj('pikachu','hidden',27,15,species='Pikachu')
 # Small pond with shore collision and native water animation.
 rect(collision,26,20,7,4,0)
 for y,row in enumerate(pond):
  for x,i in enumerate(row):put(ground,26+x,20+y,i)
-for x,y in [(10,21),(10,22),(15,16),(16,16),(19,10),(20,10),(33,25)]:obj('flowers','flower',x,y)
+# Flowers are walkable decoration: beds by the house, along path verges and by the lab.
+for x,y in [(5,25),(6,25),(7,25),(12,22),(13,22),(14,22),(19,22),(20,22),(19,10),(20,10),(24,7),(25,7),(24,8),
+            (34,21),(34,22),(13,16),(14,16),(26,4),(18,4)]:obj('flowers','flower',x,y)
 obj('pond','water',26,20,7,4)
+
+# ——— Revision 2 props, lifted from the native Pallet Town layout ———
+# PROF. LEDGER's lab: the native 7×5 Oak's lab block, door in the bottom row.
+lab=[[680,681,681,681,681,701,693],[688,689,689,689,689,691,692],[696,697,697,697,697,699,700],
+     [704,705,720,706,707,708,709],[712,713,728,684,715,716,717]]
+for yy,row in enumerate(lab):
+ for xx,i in enumerate(row):put(decor,28+xx,6+yy,i);put(collision,28+xx,6+yy,0)
+obj('lab','talk',31,10,message="PROF. LEDGER’s LAB. It’s locked. A note on the door says: Out catching rounding errors.")
+rect(ground,24,11,9,1,662)
+put(decor,27,10,sign_tile);put(collision,27,10,0);obj('lab-sign','talk',27,10,message='PROF. LEDGER’s POKéMON LAB. Research into POKéMON and quarterly returns.')
+# The house yard: a mailbox by the front step.
+put(decor,4,24,685);put(collision,4,24,0);obj('mailbox','talk',4,24,message='It’s stuffed with bills. Every single one says FINAL NOTICE.')
+# THE BROKER's trading floor: a stone plaza flanked by posts, with a sign at the gate.
+for xx in range(18,27):
+ put(ground,xx,2,357 if xx==18 else 359 if xx==26 else 358)
+ put(ground,xx,3,373 if xx==18 else 375 if xx==26 else 374)
+for x in (17,27):put(decor,x,2,361);put(collision,x,2,0)
+put(decor,24,4,360);put(collision,24,4,0);obj('floor-sign','talk',24,4,message='THE BROKER’S TRADING FLOOR. Minimum deposit: 3 POKéMON. No refunds.')
+# Boulders in otherwise empty grass.
+for x,y in [(13,12),(14,14),(34,24),(25,9),(35,7)]:put(decor,x,y,159);put(collision,x,y,0)
+# A route note at the north-west grass.
+put(decor,15,6,sign_tile);put(collision,15,6,0);obj('grass-sign','talk',15,6,message='ROUTE NOTE: Shy POKéMON hide in tall grass. Walk close and they’ll jump out!')
+
+# Soft path verges, as in native Pallet Town: every light-path cell that meets
+# grass becomes the matching edge or corner metatile. Plaza counts as path.
+PATH=663;LIGHT={663}|{i+1 for i in (357,358,359,373,374,375)}
+def light(x,y):return not(0<=x<W and 0<=y<H) or ground[y*W+x] in LIGHT
+edges=[0]*(W*H)
+for y in range(H):
+ for x in range(W):
+  if ground[y*W+x]!=PATH:continue
+  n,s,w,e=light(x,y-1),light(x,y+1),light(x-1,y),light(x+1,y)
+  if (not n and not s) or (not w and not e):continue
+  t=(678 if not w else 655 if not e else 654) if not n else (694 if not w else 671 if not e else 670) if not s else 686 if not w else 663 if not e else \
+    702 if not light(x-1,y-1) else 703 if not light(x+1,y-1) else 710 if not light(x-1,y+1) else 711 if not light(x+1,y+1) else None
+  if t:edges[y*W+x]=t+1
+for k,v in enumerate(edges):
+ if v:ground[k]=v
 layers=[dict(id=i+1,name=n,type='tilelayer',width=W,height=H,x=0,y=0,opacity=1,visible=n not in ['Collision','Grass'],data=d) for i,(n,d) in enumerate([('Ground',ground),('Structures',decor),('Collision',collision),('Grass',grass)])]
 layers.append(dict(id=5,name='Objects',type='objectgroup',opacity=1,visible=True,objects=objects))
 mapdata=dict(type='map',version='1.10',tiledversion='1.11.2',orientation='orthogonal',renderorder='right-down',width=W,height=H,tilewidth=16,tileheight=16,infinite=False,layers=layers,tilesets=[dict(firstgid=1,name='town',tilewidth=16,tileheight=16,tilecount=len(metas),columns=16,image='../frlg/town-tiles.png',imagewidth=atlas.width,imageheight=atlas.height)])

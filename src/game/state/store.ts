@@ -1,8 +1,10 @@
-export const sceneOrder = ["Title", "Intro", "Overworld", "Battle", "Glitch", "City", "Briefing", "Registration"] as const;
+export const sceneOrder = ["Title", "Intro", "Overworld", "Battle", "Glitch", "City", "Finale"] as const;
 export type SceneKey = typeof sceneOrder[number];
-export type Species = "Charizard" | "Pikachu" | "Venusaur";
+export type Starter = "Charizard" | "Infernape" | "Blaziken";
+export type Species = Starter | "Pikachu" | "Venusaur";
+export const starters: readonly Starter[] = ["Charizard", "Infernape", "Blaziken"];
 export type DexSpecies = Species | "Blastoise" | "Bayleef" | "Caterpie";
-export type ItemId = "POTION" | "POKE_BALL" | "RECEIPT" | "CALCULATOR" | "OLD_INVOICE";
+export type ItemId = "POTION" | "POKE_BALL";
 export type TextSpeed = "slow" | "mid" | "fast";
 export type Facing = "up" | "down" | "left" | "right";
 export type GameSettings = { muted: boolean; crt: boolean; reducedMotion: boolean; volume: number; textSpeed: TextSpeed };
@@ -13,9 +15,13 @@ export type GameFlags = {
   fiveCopsSeen: boolean;
   guardMoved: boolean;
   fieldHintSeen: boolean;
+  brokerLosses: number;
 };
+export type Screen = "gba" | "gta";
 export type GameState = {
   scene: SceneKey;
+  /** GBA (240×160) or GTA (640×480) screen. Glitch switches mid-scene. */
+  screen: Screen;
   gameReady: boolean;
   playerName: string;
   party: readonly Species[];
@@ -29,7 +35,6 @@ export type GameState = {
   kills: number;
   wanted: number;
   dialogue: string;
-  registrationStartedAt: number;
   settings: GameSettings;
 };
 
@@ -37,19 +42,19 @@ export const saveKey = "bup-accounting-save-v1";
 export const textSpeedMs: Record<TextSpeed, number> = { slow: (8 / 60) * 1000, mid: (2 / 60) * 1000, fast: 1000 / 60 };
 
 const initialState = (): GameState => ({
-  scene: "Title", gameReady: false, playerName: "RED", party: ["Charizard"],
-  bag: { POKE_BALL: 5 }, seen: ["Charizard"], money: 3000, playMs: 0, position: null, savedAt: null,
-  flags: { bushesCut: [], bossBeaten: false, fiveCopsSeen: false, guardMoved: false, fieldHintSeen: false },
-  kills: 0, wanted: 0, dialogue: "BUP ACCOUNTING presents. Press Start to begin.", registrationStartedAt: 0,
+  scene: "Title", screen: "gba", gameReady: false, playerName: "RED", party: ["Charizard"],
+  bag: { POKE_BALL: 10, POTION: 2 }, seen: ["Charizard"], money: 3000, playMs: 0, position: null, savedAt: null,
+  flags: { bushesCut: [], bossBeaten: false, fiveCopsSeen: false, guardMoved: false, fieldHintSeen: false, brokerLosses: 0 },
+  kills: 0, wanted: 0, dialogue: "Press any key to begin.",
   settings: { muted: false, crt: false, reducedMotion: false, volume: 0.5, textSpeed: "mid" },
 });
 
 // Only progress is persisted. Scene, readiness and the registration timer are
 // session state; settings have their own storage key.
 export type SaveData = Pick<GameState, "playerName" | "party" | "bag" | "seen" | "money" | "playMs" | "position" | "flags" | "savedAt">;
-const speciesNames: readonly Species[] = ["Charizard", "Pikachu", "Venusaur"];
+const speciesNames: readonly Species[] = [...starters, "Pikachu", "Venusaur"];
 const dexNames: readonly DexSpecies[] = [...speciesNames, "Blastoise", "Bayleef", "Caterpie"];
-const itemNames: readonly ItemId[] = ["POTION", "POKE_BALL", "RECEIPT", "CALCULATOR", "OLD_INVOICE"];
+const itemNames: readonly ItemId[] = ["POTION", "POKE_BALL"];
 
 export function parseSave(raw: unknown): SaveData | null {
   if (!raw || typeof raw !== "object") return null;
@@ -79,6 +84,7 @@ export function parseSave(raw: unknown): SaveData | null {
       bushesCut: Array.isArray(f.bushesCut) ? f.bushesCut.filter((id): id is string => typeof id === "string").slice(0, 32) : [],
       bossBeaten: f.bossBeaten === true, fiveCopsSeen: f.fiveCopsSeen === true,
       guardMoved: f.guardMoved === true, fieldHintSeen: f.fieldHintSeen === true,
+      brokerLosses: Number.isInteger(f.brokerLosses) ? Math.min(9, Math.max(0, f.brokerLosses as number)) : 0,
     },
   };
 }
@@ -100,14 +106,19 @@ export function createGameStore(storage: () => Storage | null = () => (typeof lo
     getServerSnapshot: () => serverSnapshot,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     setScene(scene: SceneKey) {
-      update({ scene, registrationStartedAt: scene === "Registration" ? Date.now() : state.registrationStartedAt });
+      update({ scene, screen: defaultScreen(scene) });
     },
+    setScreen(screen: Screen) { if (screen !== state.screen) update({ screen }); },
+    /** Level 2 progress, mirrored for the page and telemetry. */
+    setCity(kills: number, wanted: number) { if (kills !== state.kills || wanted !== state.wanted) update({ kills, wanted }); },
     setGameReady(gameReady: boolean) { update({ gameReady }); },
     say(dialogue: string) { if (dialogue !== state.dialogue) update({ dialogue }); },
     setPlayerName(playerName: string) { update({ playerName: normalizeName(playerName) }); },
     addToParty(species: Species) {
       if (!state.party.includes(species)) update({ party: [...state.party, species], seen: state.seen.includes(species) ? state.seen : [...state.seen, species] });
     },
+    chooseStarter(starter: Starter) { update({ party: [starter], seen: [...new Set<DexSpecies>([...state.seen.filter((s) => !starters.includes(s as Starter)), starter])] }); },
+    recordLoss() { update({ flags: { ...state.flags, brokerLosses: state.flags.brokerLosses + 1 } }); },
     markSeen(species: DexSpecies) { if (!state.seen.includes(species)) update({ seen: [...state.seen, species] }); },
     swapParty(a: number, b: number) {
       const party = [...state.party];
@@ -127,7 +138,7 @@ export function createGameStore(storage: () => Storage | null = () => (typeof lo
     openSpot(id: string) {
       if (!state.flags.bushesCut.includes(id)) update({ flags: { ...state.flags, bushesCut: [...state.flags.bushesCut, id] } });
     },
-    setFlag(flag: "guardMoved" | "fieldHintSeen" | "bossBeaten", value = true) { update({ flags: { ...state.flags, [flag]: value } }); },
+    setFlag(flag: "guardMoved" | "fieldHintSeen" | "bossBeaten" | "fiveCopsSeen", value = true) { update({ flags: { ...state.flags, [flag]: value } }); },
     setPosition(position: FieldPosition) { state = { ...state, position }; },
     tick(ms: number) { if (ms > 0 && ms < 1000) state = { ...state, playMs: state.playMs + ms }; },
     setSettings(settings: Partial<GameSettings>) { update({ settings: { ...state.settings, ...settings } }); },
@@ -166,10 +177,16 @@ export function nextPreviewScene(scene: SceneKey): SceneKey {
   return sceneOrder[Math.min(sceneOrder.indexOf(scene) + 1, sceneOrder.length - 1)];
 }
 
+export function defaultScreen(scene: SceneKey): Screen {
+  return scene === "City" || scene === "Finale" ? "gta" : "gba";
+}
+
+export function screenSize(screen: Screen) {
+  return screen === "gta" ? { width: 640, height: 480 } : { width: 240, height: 160 };
+}
+
 export function getNativeSize(scene: SceneKey) {
-  return ["City", "Briefing", "Registration"].includes(scene)
-    ? { width: 640, height: 480 }
-    : { width: 240, height: 160 };
+  return screenSize(defaultScreen(scene));
 }
 
 export function formatPlayTime(ms: number) {

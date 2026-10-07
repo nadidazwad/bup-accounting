@@ -33,7 +33,6 @@ export class OptionScene extends Scene {
     return [
       { name: "TEXT SPEED", values: ["SLOW", "MID", "FAST"], at: speeds.indexOf(s.textSpeed) },
       { name: "SOUND", values: ["ON", "OFF"], at: s.muted ? 1 : 0 },
-      { name: "CRT SCREEN", values: ["OFF", "ON"], at: s.crt ? 1 : 0 },
       { name: "CANCEL", values: [], at: 0 },
     ];
   }
@@ -54,24 +53,23 @@ export class OptionScene extends Scene {
     const s = gameStore.getSnapshot().settings;
     if (this.index === 0) gameStore.setSettings({ textSpeed: speeds[Math.max(0, Math.min(2, speeds.indexOf(s.textSpeed) + delta))] });
     else if (this.index === 1) gameStore.setSettings({ muted: delta > 0 });
-    else if (this.index === 2) gameStore.setSettings({ crt: delta > 0 });
     else return;
     chip.sfx("cursor"); this.render();
   }
 
   private onAction(action: string) {
-    if (action === "up" || action === "down") { this.index = (this.index + (action === "up" ? 3 : 1)) % 4; chip.sfx("cursor"); this.render(); }
+    if (action === "up" || action === "down") { this.index = (this.index + (action === "up" ? 2 : 1)) % 3; chip.sfx("cursor"); this.render(); }
     else if (action === "left") this.change(-1);
     else if (action === "right") this.change(1);
-    else if (["cancel", "menu"].includes(action) || (["confirm", "start"].includes(action) && this.index === 3)) closeOverlay(this, this.from);
+    else if (["cancel", "menu"].includes(action) || (["confirm", "start"].includes(action) && this.index === 2)) closeOverlay(this, this.from);
     else if (action === "confirm") this.change(this.index === 0 ? 1 : this.rows()[this.index].at === 0 ? 1 : -1);
   }
 
   private onPointer(x: number, y: number) {
     const i = Math.floor((y - 38) / 20);
-    if (i < 0 || i > 3) return;
+    if (i < 0 || i > 2) return;
     this.index = i;
-    if (i === 3) { closeOverlay(this, this.from); return; }
+    if (i === 2) { closeOverlay(this, this.from); return; }
     const value = Math.floor((x - 108) / 40);
     const row = this.rows()[i];
     if (value >= 0 && value < row.values.length) this.change(value - row.at);

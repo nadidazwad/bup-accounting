@@ -23,14 +23,14 @@ it("notifies subscribers, cleans up, and follows scene order without inventing p
   let updates = 0;
   const unsubscribe = store.subscribe(() => updates++);
   for (const scene of sceneOrder) store.setScene(scene);
-  expect(updates).toBe(8);
+  expect(updates).toBe(7);
   expect(store.getSnapshot().kills).toBe(0);
   expect(store.getSnapshot().flags.bossBeaten).toBe(false);
   unsubscribe();
   store.say("test");
-  expect(updates).toBe(8);
+  expect(updates).toBe(7);
   expect(nextPreviewScene("Title")).toBe("Intro");
-  expect(nextPreviewScene("Registration")).toBe("Registration");
+  expect(nextPreviewScene("Finale")).toBe("Finale");
 });
 
 it("integer scaling never stretches pixels fractionally, including undersized screens", () => {
@@ -66,23 +66,24 @@ it("keeps an action held until both keyboard and touch sources release", () => {
   input.clear(); expect(input.isHeld("left")).toBe(false);
 });
 
-it("persists party order, decoy rewards, pushed bushes and gate progress", () => {
+it("persists the starter, party order, bag, gate progress and Broker losses", () => {
   const values = new Map<string, string>();
   const storage = { getItem: (k: string) => values.get(k) ?? null, setItem: (k: string, v: string) => { values.set(k, v); } } as unknown as Storage;
   const store = createGameStore(() => storage);
+  store.chooseStarter("Infernape");
   store.addToParty("Pikachu"); store.addToParty("Venusaur"); store.swapParty(0, 2);
-  store.addItem("POTION"); store.useItem("POKE_BALL"); store.useItem("POKE_BALL");
-  store.openSpot("venusaur:7,5"); store.openSpot("venusaur:7,5"); store.openSpot("pikachu");
-  store.setFlag("guardMoved"); store.setFlag("fieldHintSeen");
+  store.useItem("POKE_BALL"); store.useItem("POKE_BALL"); store.useItem("POTION");
+  store.setFlag("guardMoved"); store.setFlag("fieldHintSeen"); store.recordLoss();
   store.setPosition({ x: 22, y: 6, facing: "up" }); store.tick(500);
   expect(store.save(123)).toBe(true);
   const restored = createGameStore(() => storage);
   expect(restored.load()).toBe(true);
   expect(restored.getSnapshot()).toMatchObject({
-    scene: "Title", gameReady: false, party: ["Venusaur", "Pikachu", "Charizard"],
-    bag: { POTION: 1, POKE_BALL: 3 }, position: { x: 22, y: 6, facing: "up" },
-    playMs: 500, savedAt: 123, flags: { bushesCut: ["venusaur:7,5", "pikachu"], guardMoved: true },
+    scene: "Title", gameReady: false, party: ["Venusaur", "Pikachu", "Infernape"],
+    bag: { POTION: 1, POKE_BALL: 8 }, position: { x: 22, y: 6, facing: "up" },
+    playMs: 500, savedAt: 123, flags: { guardMoved: true, brokerLosses: 1 },
   });
+  expect(restored.getSnapshot().seen).toEqual(["Infernape", "Pikachu", "Venusaur"]);
 });
 
 it("reports failed storage honestly and rejects corrupt saves", () => {
@@ -95,12 +96,12 @@ it("reports failed storage honestly and rejects corrupt saves", () => {
   expect(corrupt.hasSave()).toBe(false); expect(corrupt.load()).toBe(false);
 });
 
-it("does not duplicate rewards through repeated party updates or consume missing items", () => {
+it("does not duplicate party members or consume missing items", () => {
   const store = createGameStore(() => null);
   store.addToParty("Pikachu"); store.addToParty("Pikachu");
   expect(store.getSnapshot().seen).toEqual(["Charizard", "Pikachu"]);
+  expect(store.useItem("POTION")).toBe(true); expect(store.useItem("POTION")).toBe(true);
   expect(store.useItem("POTION")).toBe(false);
-  store.addItem("POTION"); expect(store.useItem("POTION")).toBe(true);
   expect(store.getSnapshot().bag.POTION).toBeUndefined();
   store.swapParty(-1, 0); expect(store.getSnapshot().party).toEqual(["Charizard", "Pikachu"]);
 });

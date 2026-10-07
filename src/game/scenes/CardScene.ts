@@ -22,7 +22,7 @@ export class CardScene extends Scene {
     card.lineStyle(1, 0x907020).strokeRoundedRect(8, 8, 224, 140, 8);
     card.fillStyle(0xe8d898);
     for (let i = 0; i < 6; i++) card.fillRect(40 + i * 24, 30 + i * 14, 120, 3);
-    label(this, 16, 11, "BUP ACCOUNTING TRAINER CARD", "white");
+    label(this, 16, 11, "TRAINER CARD", "white");
     label(this, 150, 34, "IDNo.26026", "small");
     const rows: [string, string][] = [["NAME", s.playerName], ["MONEY", `¥${s.money}`], ["POKéDEX", String(s.seen.length)], ["TIME", formatPlayTime(s.playMs)]];
     rows.forEach(([k, v], i) => { label(this, 18, 48 + i * 18, k); label(this, 150, 48 + i * 18, v).setOrigin(1, 0); });

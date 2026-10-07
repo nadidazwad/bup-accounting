@@ -6,18 +6,16 @@ import { FRLG } from "../style/frlg";
 import { OverworldMovement } from "../overworld/movement";
 import { destination, directionTo, findPath, sameTile, tileKey, vectors, walkable, type Direction, type Grid, type Tile } from "../overworld/navigation";
 import { Npc } from "../overworld/npc";
-import { parseOpened, pushTarget, spotRewards } from "../overworld/spots";
 import { species as speciesData } from "../data/species";
-import { items } from "../data/items";
 import { chip } from "../audio/chip";
 import { TextBox } from "../ui/TextBox";
 import { Menu, UiStack, askYesNo } from "../ui/Menu";
 import { Window } from "../ui/Window";
 import { label, type Ink } from "../ui/text";
-import { flash, playCry, reducedMotion, tween, wait } from "./helpers";
+import { flash, playCry, reducedMotion, snapshotTexture, tween, wait } from "./helpers";
 
 type TalkTarget = { tile: Tile; message: string };
-type Spot = { id: string; tile: Tile; cover: "tree" | "bush" };
+type Hidden = { species: Species; tile: Tile; armed: boolean };
 const advanceActions: InputAction[] = ["confirm", "cancel", "start", "interact"];
 const startItems = ["POKéDEX", "POKéMON", "BAG", "", "SAVE", "OPTION", "EXIT"];
 const startHelp = [
@@ -40,7 +38,7 @@ export class OverworldScene extends Scene {
   private ui = new UiStack();
   private path: Tile[] = [];
   private targets: TalkTarget[] = [];
-  private spots: Spot[] = [];
+  private hidden: Hidden[] = [];
   private npcs = new Map<string, Npc>();
   private structures!: Tilemaps.TilemapLayer | Tilemaps.TilemapGPULayer;
   private grass!: Set<string>;
@@ -57,7 +55,7 @@ export class OverworldScene extends Scene {
   create() {
     gameStore.setScene("Overworld");
     this.scale.setGameSize(FRLG.width, FRLG.height);
-    this.path = []; this.targets = []; this.spots = []; this.npcs = new Map(); this.ui = new UiStack();
+    this.path = []; this.targets = []; this.hidden = []; this.npcs = new Map(); this.ui = new UiStack();
     this.pendingTalk = null; this.lastTelemetry = 0; this.locked = false; this.grassEffects = new Map();
     const state = gameStore.getSnapshot();
     const map = this.make.tilemap({ key: "town" });
@@ -77,7 +75,7 @@ export class OverworldScene extends Scene {
       if (object.type === "ledge") grid.ledges.add(tileKey(tile));
       if (object.type === "talk") this.targets.push({ tile, message: String(props.message) });
       if (object.type === "npc") npcDefs.push({ name: object.name, tile, props });
-      if (object.type === "spot") this.spots.push({ id: object.name, tile, cover: props.cover === "tree" ? "tree" : "bush" });
+      if (object.type === "hidden" && !state.party.includes(props.species as Species)) this.hidden.push({ species: props.species as Species, tile, armed: true });
       if (object.type === "tree") {
         // The taller crown extends above the footprint. Trees and actors sort
         // by their feet, so a nearer crown covers the row behind it.
@@ -90,23 +88,8 @@ export class OverworldScene extends Scene {
         this.add.sprite(tile.x * 16, tile.y * 16, key).setOrigin(0).setDepth(key === "flower" ? (tile.y + 1) * 16 - 2 : -8).play(key);
       }
     }
-    // Tiles of the shared tileset double as sprite frames for cut/push effects.
-    const texture = this.textures.get("town-tiles");
-    for (const spot of this.spots) {
-      const index = this.structures.getTileAt(spot.tile.x, spot.tile.y)?.index ?? 0;
-      if (index > 0 && !texture.has(`t${index}`)) texture.add(`t${index}`, 0, ((index - 1) % 16) * 16, Math.floor((index - 1) / 16) * 16, 16, 16);
-    }
-    // Restore opened spots: cut trees are gone, pushed bushes sit where they slid.
-    const opened = parseOpened(state.flags.bushesCut);
-    for (const spot of this.spots) {
-      if (!opened.has(spot.id)) continue;
-      const tileIndex = this.structures.getTileAt(spot.tile.x, spot.tile.y)?.index ?? 0;
-      this.structures.removeTileAt(spot.tile.x, spot.tile.y); grid.blocked.delete(tileKey(spot.tile));
-      const moved = opened.get(spot.id);
-      if (moved && spot.cover === "bush") { this.structures.putTileAt(tileIndex, moved.x, moved.y); grid.blocked.add(tileKey(moved)); this.targets.push({ tile: moved, message: "Just a bush now. Its secrets have been audited." }); }
-    }
     for (const def of npcDefs) {
-      if (def.name === "auditor" && state.flags.bossBeaten) continue;
+      if (def.name === "broker" && state.flags.bossBeaten) continue;
       const moved = def.name === "guard" && state.flags.guardMoved;
       const tile = moved ? { x: 21, y: 4 } : def.tile;
       const npc = new Npc(this, def.name, String(def.props.sprite), tile, moved ? "right" : (def.props.facing as Direction) ?? "down", grid,
@@ -125,7 +108,8 @@ export class OverworldScene extends Scene {
     this.lastStep = 0;
     this.shadows = [this.add.ellipse(0, 0, 12, 5, 0x395a10, 0.35), this.add.ellipse(0, 0, 16, 6, 0x395a10, 0.35)];
     this.player = this.add.sprite(0, 0, "player", 0).setOrigin(0.5, 1);
-    this.follower = this.add.sprite(0, 0, "follow-charizard", 0).setOrigin(0.5, 1).setDisplaySize(16, 16);
+    // HGSS followers keep their native 32×32 size.
+    this.follower = this.add.sprite(0, 0, "follow-charizard", 0).setOrigin(0.5, 1);
     this.refreshLead();
     if (!this.anims.exists("grass-rustle")) this.anims.create({
       key: "grass-rustle", frames: [1, 2, 3, 4, 0].map(frame => ({ key: "grass-effect", frame })), frameRate: 6,
@@ -148,20 +132,24 @@ export class OverworldScene extends Scene {
       else { this.pendingTalk = null; this.path = findPath(grid, this.movement.player, tile) ?? []; }
     };
     this.input.on("pointerup", pointer);
-    this.events.on("resume", () => { this.refreshLead(); gameInput.clear(); });
+    this.events.on("resume", () => { gameStore.setScene("Overworld"); this.refreshLead(); gameInput.clear(); });
     this.events.once("shutdown", () => {
       unsubscribe(); this.input.off("pointerup", pointer); gameInput.clear(); this.grassEffects.clear(); this.events.off("resume");
       for (const key of ["player", "follower", "moving", "worldX", "worldY", "cameraX", "cameraY", "hop", "party", "locked"]) delete this.game.canvas.dataset[key];
     });
-    chip.play("route");
+    // The downloaded Pokémon theme is the Level 1 song.
+    chip.play("opening");
+    this.time.addEvent({ delay: 2600, loop: true, callback: () => { if (!this.locked) this.rustleHidden(); } });
     this.cameras.main.fadeIn(300, 0, 0, 0);
     this.drawActors(0);
     this.game.canvas.dataset.ready = "true";
     gameStore.setGameReady(true);
     if (!state.flags.fieldHintSeen) {
       void this.run(async () => {
-        await this.say("Arrows or WASD walk; hold B to run. A talks. ENTER or START opens the menu. You can also tap where to go.");
-        await this.say("PROF. LEDGER’s note: Two POKéMON are hiding behind bushes and trees. Find them, then challenge THE AUDITOR up north.");
+        const touch = typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches;
+        await this.say(touch ? "Tap where you want to go. Tap people and signs to talk. Tap yourself to open the menu."
+          : "WASD to walk, hold SHIFT to run, E to talk, M for the menu. You can also click where to go.");
+        await this.say("PROF. LEDGER’s note: Two POKéMON are hiding in the tall grass. Get close, battle them and catch them. Then challenge THE BROKER up north.");
         gameStore.setFlag("fieldHintSeen");
       });
     }
@@ -177,12 +165,12 @@ export class OverworldScene extends Scene {
       if (!this.movement.busy) this.tryMove(action as Direction);
     }
     if ((action === "confirm" || action === "interact") && !this.movement.busy) this.interact();
-    if ((action === "start" || action === "menu") && !this.movement.busy) { this.path = []; this.openStartMenu(); }
-    if (action === "select" && !this.movement.busy) void this.run(() => this.say("Hold B to run. Tap a bush or tree to walk over and inspect it. START opens the menu: SAVE often!"));
+    if (action === "menu" && !this.movement.busy) { this.path = []; this.openStartMenu(); }
+    if (action === "select" && !this.movement.busy) void this.run(() => this.say("Hold SHIFT to run. POKéMON hide in tall grass. M opens the menu: SAVE often!"));
   }
 
   private tryMove(direction: Direction) {
-    const moved = this.movement.move(direction, gameInput.isHeld("cancel"));
+    const moved = this.movement.move(direction, gameInput.isHeld("run"));
     if (moved && this.movement.visual().player.hop === 0) {
       const step = this.movement.occupied().at(-1);
       if (step && Math.abs(step.y - this.movement.player.y) === 2) chip.sfx("hop");
@@ -219,11 +207,7 @@ export class OverworldScene extends Scene {
 
   // ——— Interaction ———
   private interactable(tile: Tile) {
-    return this.targets.some(t => sameTile(t.tile, tile)) || this.spotAt(tile) || [...this.npcs.values()].some(n => sameTile(n.tile, tile));
-  }
-  private spotAt(tile: Tile) {
-    const opened = parseOpened(gameStore.getSnapshot().flags.bushesCut);
-    return this.spots.find(s => !opened.has(s.id) && sameTile(s.tile, tile));
+    return this.targets.some(t => sameTile(t.tile, tile)) || [...this.npcs.values()].some(n => sameTile(n.tile, tile));
   }
   private walkToTalk(target: Tile) {
     let best: Tile[] | null = null;
@@ -246,28 +230,26 @@ export class OverworldScene extends Scene {
     }
     const npc = [...this.npcs.values()].find(n => sameTile(n.tile, ahead) && !n.moving);
     if (npc) { void this.run(() => this.talkTo(npc)); return; }
-    const spot = this.spotAt(ahead);
-    if (spot) { void this.run(() => this.openSpot(spot)); return; }
     const target = this.targets.find(t => sameTile(t.tile, ahead));
     if (target) void this.run(() => this.say(target.message === "@counter" ? this.counterText() : target.message));
   }
   private counterText() {
     const n = gameStore.getSnapshot().party.length;
-    return n >= 3 ? "POKéMON FOUND: 3/3. Records complete. THE AUDITOR awaits beyond the gate." : `POKéMON FOUND: ${n}/3. THE AUDITOR only accepts complete records.`;
+    return n >= 3 ? "POKéMON FOUND: 3/3. Records complete. THE BROKER awaits beyond the gate." : `POKéMON FOUND: ${n}/3. THE BROKER only deals with complete portfolios.`;
   }
 
   private async talkTo(npc: Npc) {
     npc.faceTile(this.movement.player);
     const party = gameStore.getSnapshot().party.length;
     if (npc.name === "guard") {
-      if (gameStore.getSnapshot().flags.guardMoved) { await this.say("THE AUDITOR is waiting. Don’t forget to SAVE first!", "blue"); return; }
+      if (gameStore.getSnapshot().flags.guardMoved) { await this.say("THE BROKER is waiting. Don’t forget to SAVE first!", "blue"); return; }
       if (party < 3) {
-        await this.say(`Only trainers with 3 POKéMON may challenge THE AUDITOR. Your party has ${party}.`, "blue");
-        await this.say("Rumor has it a couple of POKéMON are hiding behind the bushes and trees around here.", "blue");
+        await this.say(`Only trainers with 3 POKéMON may challenge THE BROKER. Your party has ${party}.`, "blue");
+        await this.say("Rumor has it a couple of POKéMON are hiding in the tall grass around here.", "blue");
         return;
       }
       await this.say("Oh! Three POKéMON. Your books look in order.", "blue");
-      await this.say("THE AUDITOR will see you now. Good luck… you’ll need it.", "blue");
+      await this.say("THE BROKER will see you now. Good luck… you’ll need it.", "blue");
       // The guard steps aside: up into the clearing, then left out of the gap.
       if (!(await npc.step("up", this.movement.occupied()))) return;
       if (!(await npc.step("left", this.movement.occupied()))) {
@@ -278,113 +260,28 @@ export class OverworldScene extends Scene {
       gameStore.setFlag("guardMoved");
       return;
     }
-    if (npc.name === "auditor") { await this.auditorBattle(npc); return; }
+    if (npc.name === "broker") { await this.brokerBattle(npc); return; }
     await this.say(npc.message, npc.name === "lass" ? "red" : "blue");
   }
 
-  // ——— Hiding spots (PLAN.md §4.4) ———
-  private user(move: "cut" | "strength") {
-    const party = gameStore.getSnapshot().party;
-    return party.find(s => speciesData[s].hm[move]) ?? "Charizard";
-  }
-
-  private async openSpot(spot: Spot) {
-    const name = gameStore.getSnapshot().playerName;
-    let entry = spot.id;
-    if (spot.cover === "tree") {
-      if (!(await this.ask("This tree looks like it can be CUT! Would you like to use CUT?"))) return;
-      const user = this.user("cut");
-      await this.say(`${speciesData[user].name} used CUT!`);
-      await this.fieldMoveCutIn(user);
-      await this.cutTree(spot);
-    } else {
-      await this.say("The bush is rustling…");
-      if (!(await this.ask("Push it aside?"))) return;
-      const npcTiles = [...this.npcs.values()].map(n => n.tile);
-      const to = pushTarget(this.movement.grid, spot.tile, this.movement.facing, [...this.movement.occupied(), ...npcTiles]);
-      if (!to) { await this.say("The bush won’t budge. Something heavy is wedged behind it."); return; }
-      const user = this.user("strength");
-      await this.say(`${speciesData[user].name} used STRENGTH!`);
-      await this.fieldMoveCutIn(user);
-      await this.slideBush(spot, to);
-      entry = `${spot.id}:${to.x},${to.y}`;
+  // ——— POKéMON hiding in the tall grass (PLAN.md Revision 2) ———
+  /** Walking within two tiles of a hidden POKéMON makes it pop out and battle. */
+  private checkHidden() {
+    const p = this.movement.player;
+    for (const h of this.hidden) {
+      const distance = Math.abs(h.tile.x - p.x) + Math.abs(h.tile.y - p.y);
+      if (!h.armed) { if (distance > 3) h.armed = true; continue; }
+      if (distance <= 2) { void this.run(() => this.wildEncounter(h)); return; }
     }
-    gameStore.openSpot(entry);
-    const reward = spotRewards[spot.id];
-    if (!reward) return;
-    if (reward.kind === "species") await this.reveal(spot.tile, reward.species);
-    else if (reward.kind === "item") {
-      const item = items[reward.item];
-      gameStore.addItem(reward.item);
-      chip.play("itemGet");
-      await this.say(`${name} found a ${item.name}!`);
-      await wait(this, 300);
-      await this.say(`${name} put the ${item.name} away in the BAG.`);
-      for (const line of reward.lines) await this.say(line);
-    } else if (reward.kind === "spreadsheet") await this.spreadsheet(spot.tile);
-    else for (const line of reward.lines) await this.say(line);
   }
 
-  /** FRLG field-move cut-in: the POKéMON's portrait sweeps across a streaked band. */
-  private async fieldMoveCutIn(user: Species) {
-    const key = speciesData[user].key;
-    const band = this.add.container(0, 0).setScrollFactor(0).setDepth(15000);
-    const bg = this.add.rectangle(0, 80, 240, 0, 0x284868).setOrigin(0, 0.5);
-    band.add(bg);
-    const streaks: GameObjects.Rectangle[] = [];
-    for (let i = 0; i < 9; i++) {
-      const s = this.add.rectangle(Phaser.Math.Between(0, 240), 52 + i * 7, Phaser.Math.Between(16, 60), 1, 0x88b8e0, 0.8).setOrigin(0, 0.5).setVisible(false);
-      streaks.push(s); band.add(s);
+  /** The grass over a hidden POKéMON twitches now and then: a hint, not a spoiler. */
+  private rustleHidden() {
+    for (const h of this.hidden) {
+      if (this.grassEffects.has(tileKey(h.tile))) continue;
+      const fx = this.add.sprite(h.tile.x * 16, h.tile.y * 16, "grass-effect", 1).setOrigin(0).setDepth((h.tile.y + 1) * 16 + 1).play("grass-rustle");
+      fx.once("animationcomplete", () => fx.destroy());
     }
-    const mon = this.add.image(300, 80, `front-${key}`).setOrigin(0.5);
-    band.add(mon);
-    const fast = reducedMotion();
-    await tween(this, { targets: bg, height: 64, duration: fast ? 1 : 160 });
-    streaks.forEach(s => s.setVisible(true));
-    const drift = this.time.addEvent({ delay: 16, loop: true, callback: () => streaks.forEach(s => { s.x -= 6; if (s.x + s.width < 0) s.x = 240; }) });
-    await tween(this, { targets: mon, x: 120, duration: fast ? 1 : 260, ease: "Cubic.easeOut" });
-    playCry(this, key);
-    await wait(this, 700);
-    await tween(this, { targets: mon, x: -60, duration: fast ? 1 : 220, ease: "Cubic.easeIn" });
-    drift.remove();
-    streaks.forEach(s => s.setVisible(false));
-    await tween(this, { targets: bg, height: 0, duration: fast ? 1 : 140 });
-    band.destroy();
-  }
-
-  private async cutTree(spot: Spot) {
-    const index = this.structures.getTileAt(spot.tile.x, spot.tile.y)?.index ?? 0;
-    this.structures.removeTileAt(spot.tile.x, spot.tile.y);
-    const x = spot.tile.x * 16, y = spot.tile.y * 16;
-    const left = this.add.image(x, y, "town-tiles", `t${index}`).setOrigin(0).setCrop(0, 0, 8, 16).setDepth(y + 16);
-    const right = this.add.image(x, y, "town-tiles", `t${index}`).setOrigin(0).setCrop(8, 0, 8, 16).setDepth(y + 16);
-    chip.sfx("cut");
-    // Four quick frames: shake, split, fall apart, gone.
-    for (const dx of [-1, 1]) { left.x = x + dx; right.x = x + dx; await wait(this, 67); }
-    left.x = x; right.x = x;
-    const leaves = Array.from({ length: 8 }, () => this.add.rectangle(x + 8, y + 6, 2, 2, Phaser.Math.RND.pick([0x58a830, 0x80c848, 0x386820])).setDepth(y + 17));
-    leaves.forEach(l => this.tweens.add({ targets: l, x: l.x + Phaser.Math.Between(-14, 14), y: l.y + Phaser.Math.Between(-10, 8), alpha: 0, duration: 420 }));
-    await Promise.all([
-      tween(this, { targets: left, x: x - 5, angle: -25, alpha: 0, duration: 260 }),
-      tween(this, { targets: right, x: x + 5, angle: 25, alpha: 0, duration: 260 }),
-    ]);
-    left.destroy(); right.destroy(); leaves.forEach(l => l.destroy());
-    this.movement.grid.blocked.delete(tileKey(spot.tile));
-  }
-
-  private async slideBush(spot: Spot, to: Tile) {
-    const index = this.structures.getTileAt(spot.tile.x, spot.tile.y)?.index ?? 0;
-    this.structures.removeTileAt(spot.tile.x, spot.tile.y);
-    const bush = this.add.image(spot.tile.x * 16, spot.tile.y * 16, "town-tiles", `t${index}`).setOrigin(0).setDepth(spot.tile.y * 16 + 16);
-    this.movement.grid.blocked.add(tileKey(to));
-    chip.sfx("push");
-    // A Strength-boulder slide: one tile in 16 frames, with a little rustle.
-    await tween(this, { targets: bush, x: to.x * 16, y: to.y * 16, duration: FRLG.walkTileMs, onUpdate: () => { bush.setAngle(Math.sin(this.time.now / 30) * 3); } });
-    bush.destroy();
-    this.structures.putTileAt(index, to.x, to.y);
-    this.movement.grid.blocked.delete(tileKey(spot.tile));
-    this.targets.push({ tile: to, message: "Just a bush now. Its secrets have been audited." });
-    chip.sfx("rustle");
   }
 
   private emote(x: number, y: number, frame = 0) {
@@ -393,31 +290,41 @@ export class OverworldScene extends Scene {
     return wait(this, 700).then(() => bubble.destroy());
   }
 
-  private async reveal(tile: Tile, mon: Species) {
-    const info = speciesData[mon];
-    const px = tile.x * 16 + 8, py = tile.y * 16 + 16;
+  private battle(kind: "wild" | "trainer", foe: string[]) {
+    const done = new Promise<string>((resolve) => this.game.events.once("battle-done", (result: string) => resolve(result)));
+    this.scene.launch("Battle", { kind, foe });
+    this.scene.pause();
+    return done;
+  }
+
+  private async wildEncounter(h: Hidden) {
+    this.path = [];
+    const info = speciesData[h.species];
+    const px = h.tile.x * 16 + 8, py = h.tile.y * 16 + 16;
     const row: Record<Direction, number> = { down: 0, left: 1, right: 2, up: 3 };
-    const sprite = this.add.sprite(px, py + 1, `follow-${info.key}`, row[directionTo(tile, this.movement.player)] * 4).setOrigin(0.5, 1).setDepth(py);
+    const sprite = this.add.sprite(px, py + 1, `follow-${info.key}`, row[directionTo(h.tile, this.movement.player)] * 4).setOrigin(0.5, 1).setDepth(py);
+    chip.sfx("rustle");
     playCry(this, info.key);
-    await tween(this, { targets: sprite, y: py - 7, duration: 140, yoyo: true, ease: "Quad.easeOut" });
+    await tween(this, { targets: sprite, y: py - 9, duration: 150, yoyo: true, ease: "Quad.easeOut" });
     const visual = this.movement.visual().player;
+    this.movement.facing = directionTo(this.movement.player, h.tile);
     await this.emote(visual.x, visual.y - 30);
-    // Wild encounter: two flashes, then the FRLG slice wipe into the battle screen.
     chip.play("wild");
     chip.sfx("encounter");
     await flash(this, 2);
     const bars = await this.sliceWipe();
-    const caught = new Promise<void>((resolve) => this.game.events.once("catch-done", () => resolve()));
-    this.scene.launch("Catch", { species: mon });
-    this.scene.pause();
-    await caught;
-    sprite.destroy(); bars.destroy();
-    gameStore.addToParty(mon);
-    chip.play("route");
+    const result = await this.battle("wild", [h.species]);
+    bars.destroy(); sprite.destroy();
+    h.armed = false;
+    if (result === "caught") this.hidden = this.hidden.filter((x) => x !== h);
+    this.refreshLead();
+    chip.play("opening");
     this.cameras.main.fadeIn(400, 0, 0, 0);
     await wait(this, 400);
-    if (gameStore.getSnapshot().party.length >= 3) {
-      await this.say("Your party is complete! The guard by THE AUDITOR’s gate up north should let you through now.");
+    if (result === "run") await this.say(`${info.name} dove back into the grass. It’s still around here somewhere…`);
+    if (result === "lose") await this.say(`${info.name} is still hiding in the grass. Catch your breath and try again.`);
+    if (result === "caught" && gameStore.getSnapshot().party.length >= 3) {
+      await this.say("Your party is complete! The guard by THE BROKER’s gate up north should let you through now.");
     }
   }
 
@@ -435,51 +342,53 @@ export class OverworldScene extends Scene {
     return bars;
   }
 
-  private async spreadsheet(tile: Tile) {
-    // A tiny original sprite: a spreadsheet with eyes, fleeing the scene.
-    const x = tile.x * 16 + 8, y = tile.y * 16 + 8;
-    const sheet = this.add.container(x, y).setDepth(y + 20);
-    sheet.add(this.add.rectangle(0, 0, 14, 12, 0xf8f8f8).setStrokeStyle(1, 0x206838));
-    for (const gx of [-2, 3]) sheet.add(this.add.rectangle(gx, 0, 1, 10, 0x58b060));
-    for (const gy of [-2, 2]) sheet.add(this.add.rectangle(0, gy, 12, 1, 0x58b060));
-    sheet.add(this.add.rectangle(-3, -4, 2, 2, 0x202020)); sheet.add(this.add.rectangle(2, -4, 2, 2, 0x202020));
-    await tween(this, { targets: sheet, y: y - 8, duration: 120, yoyo: true });
-    const visual = this.movement.visual().player;
-    await this.emote(visual.x, visual.y - 30);
-    chip.sfx("encounter");
-    await this.say("A wild SPREADSHEET appeared!");
-    const away = directionTo(this.movement.player, tile);
-    chip.sfx("slide");
-    await tween(this, { targets: sheet, x: x + vectors[away].x * 200, y: y + vectors[away].y * 200, angle: 360, duration: 700, ease: "Quad.easeIn" });
-    sheet.destroy();
-    await this.say("…It fled. Probably to a shared drive nobody can find.");
-  }
-
-  // ——— THE AUDITOR (the battle itself is M4) ———
+  // ——— THE BROKER ———
   private checkSpotted() {
-    const auditor = this.npcs.get("auditor");
+    const broker = this.npcs.get("broker");
     const s = gameStore.getSnapshot();
-    if (!auditor || this.locked || s.flags.bossBeaten || !s.flags.guardMoved) return;
+    if (!broker || this.locked || s.flags.bossBeaten || !s.flags.guardMoved) return;
     const p = this.movement.player;
-    // Line of sight: the Auditor faces down and spots anyone in the next two tiles.
-    if (p.x === auditor.tile.x && p.y > auditor.tile.y && p.y - auditor.tile.y <= 2) void this.run(() => this.auditorBattle(auditor));
+    // Line of sight: THE BROKER faces down and spots anyone in the next two tiles.
+    if (p.x === broker.tile.x && p.y > broker.tile.y && p.y - broker.tile.y <= 2) void this.run(() => this.brokerBattle(broker));
   }
 
-  private async auditorBattle(auditor: Npc) {
+  private async brokerBattle(broker: Npc) {
     this.path = [];
     chip.play("spotted");
-    await this.emote(auditor.sprite.x, auditor.sprite.y - 30);
+    await this.emote(broker.sprite.x, broker.sprite.y - 30);
     chip.play("auditor");
-    while (Math.abs(auditor.tile.y - this.movement.player.y) + Math.abs(auditor.tile.x - this.movement.player.x) > 1) {
-      if (!(await auditor.step(directionTo(auditor.tile, this.movement.player), this.movement.occupied()))) break;
+    while (Math.abs(broker.tile.y - this.movement.player.y) + Math.abs(broker.tile.x - this.movement.player.x) > 1) {
+      if (!(await broker.step(directionTo(broker.tile, this.movement.player), this.movement.occupied()))) break;
     }
-    auditor.faceTile(this.movement.player);
-    this.movement.facing = directionTo(this.movement.player, auditor.tile);
-    await this.say("THE AUDITOR: So you’re the one who’s been CUTTING corners around here.", "blue");
-    await this.say("THE AUDITOR: Let’s see your books!", "blue");
+    broker.faceTile(this.movement.player);
+    this.movement.facing = directionTo(this.movement.player, broker.tile);
+    const losses = gameStore.getSnapshot().flags.brokerLosses;
+    if (losses) await this.say("THE BROKER: Back for another margin call? Fine. Let’s trade.", "blue");
+    else {
+      await this.say("THE BROKER: So you’re the one who’s been cornering the market around here.", "blue");
+      await this.say("THE BROKER: Let’s see if your portfolio can take a crash!", "blue");
+    }
     gameStore.setPosition({ ...this.movement.player, facing: this.movement.facing });
-    await this.trainerWipe();
-    this.scene.start("Battle");
+    const wipe = await this.trainerWipe();
+    const result = await this.battle("trainer", ["Caterpie", "Bayleef", "Blastoise"]);
+    wipe.destroy();
+    if (result === "win") {
+      // Level 1 is done. THE BROKER has one more thing to say, then the
+      // music sags, the frame is captured and the cartridge breaks (PLAN.md §6).
+      this.locked = true;
+      chip.play("opening");
+      this.cameras.main.fadeIn(400, 0, 0, 0);
+      await wait(this, 400);
+      await this.say("THE BROKER: Heh. Not bad, kid. But this little town? This was the tutorial.", "blue");
+      await this.say("THE BROKER: Let me show you how we do business in MY city.", "blue");
+      await snapshotTexture(this, "glitch-snap");
+      this.scene.start("Glitch", { snapshot: true });
+      return;
+    }
+    chip.play("opening");
+    this.cameras.main.fadeIn(400, 0, 0, 0);
+    await wait(this, 400);
+    await this.say("THE BROKER: Come back when your numbers add up.", "blue");
   }
 
   private async trainerWipe() {
@@ -491,7 +400,7 @@ export class OverworldScene extends Scene {
       targets: state, angle: 360, duration: reducedMotion() ? 1 : 700, ease: "Sine.easeIn",
       onUpdate: () => { g.clear().fillStyle(0x000000).slice(120, 80, 160, Phaser.Math.DegToRad(-90), Phaser.Math.DegToRad(-90 + state.angle), false).fillPath(); },
     });
-    chip.stopMusic();
+    return g;
   }
 
   // ——— Start menu ———
@@ -502,7 +411,7 @@ export class OverworldScene extends Scene {
     const s = gameStore.getSnapshot();
     const labels = startItems.map((item, i) => (i === 3 ? s.playerName : item));
     const help = new Window(this, 0, 120, 240, 40).setScrollFactor(0).setDepth(10005);
-    const helpText = label(this, 10, 128, "").setMaxWidth(220);
+    const helpText = label(this, 10, 6, "", "small").setMaxWidth(220);
     help.add(helpText);
     let release = () => {};
     const close = () => { release(); menu.destroy(); help.destroy(); this.locked = false; gameInput.clear(); };
@@ -579,6 +488,7 @@ export class OverworldScene extends Scene {
       this.lastStep = this.movement.completedSteps;
       gameStore.setPosition({ ...this.movement.player, facing: this.movement.facing });
       this.checkSpotted();
+      this.checkHidden();
     }
     this.drawActors(time);
   }
@@ -614,7 +524,9 @@ export class OverworldScene extends Scene {
     actors.forEach((actor, i) => {
       const p = positions[i]; const happyHop = i === 1 && time < this.interactedHop ? Math.round(Math.sin((1 - (this.interactedHop - time) / 350) * Math.PI) * 4) : 0;
       // HGSS followers are 32×32 with their feet on the tile's bottom row.
-      actor.setPosition(p.x, p.y - p.hop - happyHop + (i === 1 ? 1 : 0)).setDepth(p.y);
+      // A 32×32 follower never hides the player: when the sprites overlap it sorts behind.
+      const overlapping = i === 1 && Math.abs(p.x - visual.player.x) < 16 && Math.abs(p.y - visual.player.y) < 24;
+      actor.setPosition(p.x, p.y - p.hop - happyHop + (i === 1 ? 1 : 0)).setDepth(overlapping ? Math.min(p.y, visual.player.y - 1) : p.y);
       this.shadows[i].setPosition(p.x, p.y - 2).setDepth(p.y - 1).setVisible(p.hop > 0 || happyHop > 0);
     });
     this.updateGrassEffects(positions.filter((p, i) => p.hop === 0 && (i !== 1 || time >= this.interactedHop)));

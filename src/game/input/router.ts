@@ -1,22 +1,27 @@
-// "start" is the keyboard Enter key: it confirms inside menus and dialogue and
-// opens the start menu while roaming. "menu" (Escape, the on-screen START
-// button) toggles the start menu and backs out of menus.
-export type InputAction = "up" | "down" | "left" | "right" | "confirm" | "cancel" | "start" | "menu" | "select" | "interact" | "debug";
+// Modern bindings: WASD/arrows move, Shift runs, E/Space/Enter interact,
+// Q/Backspace go back, Esc/M open the menu (and back out of menus).
+// Z/X stay as silent aliases for players with GBA-emulator muscle memory.
+// Level 2 adds R (radio), H (horn) and F (get in/out). In a car, Space and
+// Shift are the handbrake: scenes read the source key to tell Space from E.
+export type InputAction = "up" | "down" | "left" | "right" | "confirm" | "cancel" | "run" | "menu" | "debug" | "start" | "select" | "interact" | "radio" | "horn";
 
-const keyMap: Record<string, InputAction> = {
+export const keyMap: Record<string, InputAction> = {
   ArrowUp: "up", KeyW: "up", ArrowDown: "down", KeyS: "down",
   ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right",
-  KeyZ: "confirm", Enter: "start", NumpadEnter: "start", Space: "confirm", KeyX: "cancel", KeyC: "select",
-  Backspace: "cancel", ShiftLeft: "cancel", ShiftRight: "cancel", Escape: "menu", KeyF: "interact", F1: "debug",
+  KeyE: "confirm", Space: "confirm", Enter: "confirm", NumpadEnter: "confirm", KeyZ: "confirm",
+  KeyQ: "cancel", Backspace: "cancel", KeyX: "cancel",
+  ShiftLeft: "run", ShiftRight: "run",
+  Escape: "menu", KeyM: "menu", F1: "debug",
+  KeyF: "interact", KeyR: "radio", KeyH: "horn",
 };
 
 export class InputRouter {
   private readonly held = new Set<InputAction>();
   private readonly sources = new Map<InputAction, Set<string>>();
-  private readonly listeners = new Set<(action: InputAction) => void>();
+  private readonly listeners = new Set<(action: InputAction, source: string) => void>();
   private readonly heldKeys = new Map<string, InputAction>();
 
-  subscribe(listener: (action: InputAction) => void) {
+  subscribe(listener: (action: InputAction, source: string) => void) {
     this.listeners.add(listener);
     return () => { this.listeners.delete(listener); };
   }
@@ -25,13 +30,15 @@ export class InputRouter {
     sources.add(source); this.sources.set(action, sources);
     if (this.held.has(action)) return;
     this.held.add(action);
-    this.listeners.forEach((listener) => listener(action));
+    this.listeners.forEach((listener) => listener(action, source));
   }
   release(action: InputAction, source = "control") {
     const sources = this.sources.get(action); sources?.delete(source);
     if (!sources?.size) { this.sources.delete(action); this.held.delete(action); }
   }
   isHeld(action: InputAction) { return this.held.has(action); }
+  /** Whether a specific key (KeyboardEvent.code) is down, e.g. Space as a handbrake. */
+  isKeyHeld(code: string) { return this.heldKeys.has(code); }
   clear() { this.held.clear(); this.sources.clear(); this.heldKeys.clear(); }
 
   attach(canvas: HTMLCanvasElement, scope: HTMLElement = canvas) {

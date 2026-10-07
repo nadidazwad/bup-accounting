@@ -4,7 +4,6 @@ import { PreloadScene } from "./scenes/PreloadScene";
 import { TitleScene } from "./scenes/TitleScene";
 import { IntroScene } from "./scenes/IntroScene";
 import { NamingScene } from "./scenes/NamingScene";
-import { CatchScene } from "./scenes/CatchScene";
 import { PartyScene } from "./scenes/PartyScene";
 import { DexScene } from "./scenes/DexScene";
 import { BagScene } from "./scenes/BagScene";
@@ -14,7 +13,8 @@ import { OverworldScene } from "./scenes/OverworldScene";
 import { BattleScene } from "./scenes/BattleScene";
 import { GlitchScene } from "./scenes/GlitchScene";
 import { CityScene } from "./scenes/CityScene";
-import { BriefingScene } from "./scenes/BriefingScene";
+import { CityHudScene } from "./scenes/CityHudScene";
+import { FinaleScene } from "./scenes/FinaleScene";
 import { FRLG } from "./style/frlg";
 
 export function gameConfig(parent: HTMLElement): Phaser.Types.Core.GameConfig {
@@ -28,7 +28,7 @@ export function gameConfig(parent: HTMLElement): Phaser.Types.Core.GameConfig {
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     input: { keyboard: false },
     audio: { disableWebAudio: false },
-    scene: [BootScene, PreloadScene, TitleScene, IntroScene, NamingScene, OverworldScene, CatchScene, PartyScene, DexScene, BagScene, CardScene, OptionScene, BattleScene, GlitchScene, CityScene, BriefingScene],
+    scene: [BootScene, PreloadScene, TitleScene, IntroScene, NamingScene, OverworldScene, PartyScene, DexScene, BagScene, CardScene, OptionScene, BattleScene, GlitchScene, CityScene, CityHudScene, FinaleScene],
   };
 }
 

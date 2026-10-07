@@ -12,7 +12,7 @@ const pages = {
   OTHERS: ["01234   ", "56789   ", "!?♂♀/-  ", "…“”‘’   "],
 } as const;
 type Page = keyof typeof pages;
-const cellX = (col: number) => 28 + col * 19, cellY = (row: number) => 88 + row * 16;
+const cellX = (col: number) => 28 + col * 19, cellY = (row: number) => 84 + row * 15;
 const buttons = ["page", "back", "ok"] as const;
 const buttonY = [84, 108, 132];
 const maxLength = 7;
@@ -38,7 +38,7 @@ export class NamingScene extends Scene {
       this.slots.push(label(this, 78 + i * 10, 55, ""));
     }
     for (let row = 0; row < 4; row++) for (let col = 0; col < 8; col++) this.letters.push(label(this, cellX(col), cellY(row), ""));
-    new Window(this, 190, 80, 44, 24); new Window(this, 190, 104, 44, 24); new Window(this, 190, 128, 44, 24);
+    new Window(this, 186, 80, 52, 24); new Window(this, 186, 104, 52, 24); new Window(this, 186, 128, 52, 24);
     this.pageLabel = label(this, 212, 85, "", "small").setOrigin(0.5, 0);
     label(this, 212, 109, "BACK", "small").setOrigin(0.5, 0);
     label(this, 212, 133, "OK", "small").setOrigin(0.5, 0);
@@ -53,8 +53,8 @@ export class NamingScene extends Scene {
     this.pageLabel.setText(this.page === "UPPER" ? "OTHERS" : "UPPER");
   }
   private place() {
-    if (this.col < 8) this.cursor.setPosition(cellX(this.col) - 4, cellY(this.row) - 1).setSize(14, 16);
-    else this.cursor.setPosition(191, buttonY[Math.min(this.row, 2)] + 1).setSize(42, 22);
+    if (this.col < 8) this.cursor.setPosition(cellX(this.col) - 4, cellY(this.row) - 1).setSize(14, 15);
+    else this.cursor.setPosition(187, buttonY[Math.min(this.row, 2)] + 1).setSize(50, 22);
   }
   private renderName() {
     this.slots.forEach((slot, i) => slot.setText(this.name[i] ?? ""));
@@ -104,8 +104,8 @@ export class NamingScene extends Scene {
     gameStore.say(this.col < 8 ? (pages[this.page][this.row][this.col].trim() || "space") : buttons[this.row]);
   }
   private onPointer(x: number, y: number) {
-    if (x >= 190 && y >= 80 && y < 152) { this.col = 8; this.row = Math.min(2, Math.floor((y - 80) / 24)); this.place(); this.press(); return; }
-    const col = Math.round((x - 28 - 3) / 19), row = Math.floor((y - 88 + 1) / 16);
+    if (x >= 186 && y >= 80 && y < 152) { this.col = 8; this.row = Math.min(2, Math.floor((y - 80) / 24)); this.place(); this.press(); return; }
+    const col = Math.round((x - 28 - 3) / 19), row = Math.floor((y - 84 + 1) / 15);
     if (col >= 0 && col < 8 && row >= 0 && row < 4) { this.col = col; this.row = row; this.place(); this.press(); }
   }
 }

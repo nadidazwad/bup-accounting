@@ -78,6 +78,65 @@ export const tracks = {
       { voice: "triangle", volume: 0.22, notes: "e3/2 e3/2 e3/2 e3/2 b2/4 e3/4" },
     ],
   },
+  // ——— Level 2: original radio parodies and GTA-ish front-end cues ———
+  bupfm: {
+    // BUP FM: synthwave. Am F C G, two bars each.
+    bpm: 108, loop: true, channels: [
+      { voice: "pulse50", volume: 0.1, notes: bars(
+        "e5/4 a5/4 g5/2 e5/2 c5/4", "d5/2 e5/2 r/2 c5/2 b4/4 a4/4", "f5/4 a5/4 c6/4 a5/4", "g5/2 f5/2 e5/4 c5/8",
+        "e5/4 g5/4 c6/2 b5/2 g5/4", "e5/6 d5/2 c5/8", "d5/4 g5/4 b5/4 d6/4", "c6/2 b5/2 a5/4 g5/4 e5/4") },
+      { voice: "pulse12", volume: 0.045, notes: bars(
+        times("a4/1 c5/1 e5/1 a5/1 e5/1 c5/1 a4/1 c5/1", 4), times("f4/1 a4/1 c5/1 f5/1 c5/1 a4/1 f4/1 a4/1", 4),
+        times("c5/1 e5/1 g5/1 c6/1 g5/1 e5/1 c5/1 e5/1", 4), times("g4/1 b4/1 d5/1 g5/1 d5/1 b4/1 g4/1 b4/1", 4)) },
+      { voice: "triangle", volume: 0.22, notes: bars(
+        times("a2/2 a2/2 a3/2 a2/2 a2/2 a3/2 a2/2 e3/2", 2), times("f2/2 f2/2 f3/2 f2/2 f2/2 f3/2 f2/2 c3/2", 2),
+        times("c3/2 c3/2 c4/2 c3/2 c3/2 c4/2 c3/2 g3/2", 2), times("g2/2 g2/2 g3/2 g2/2 g2/2 g3/2 g2/2 d3/2", 2)) },
+      { voice: "noise", volume: 0.05, notes: times("k/2 h/2 s/2 h/2 k/2 k/2 s/2 h/2", 8) },
+    ],
+  },
+  krud: {
+    // KRUD 99.9, talk radio for auditors: hold music between the ads.
+    bpm: 92, loop: true, channels: [
+      { voice: "pulse50", volume: 0.07, notes: times(bars("a4/6 g4/2 f4/4 e4/4", "d4/8 r/8", "e4/4 g4/4 b4/4 d5/4", "c#5/12 r/4"), 2) },
+      { voice: "pulse25", volume: 0.04, notes: times(bars("r/2 f4/2 r/4 c5/2 r/6", "r/2 f4/2 r/4 b4/2 r/6", "r/2 e4/2 r/4 b4/2 r/6", "r/2 e4/2 r/4 g4/2 r/6"), 2) },
+      { voice: "triangle", volume: 0.2, notes: times(bars("d3/4 f3/4 a3/4 c4/4", "g2/4 b2/4 d3/4 f3/4", "c3/4 e3/4 g3/4 b3/4", "a2/4 c#3/4 e3/4 g3/4"), 2) },
+      { voice: "noise", volume: 0.03, notes: times("h/4 h/2 h/2 h/4 h/2 h/2", 8) },
+    ],
+  },
+  frontend: {
+    bpm: 124, loop: true, channels: [
+      { voice: "pulse50", volume: 0.1, notes: bars("c5/2 r/2 c5/2 r/2 eb5/2 r/2 g5/4", "f5/2 r/2 eb5/2 r/2 d5/4 c5/4", "ab4/4 c5/4 eb5/4 ab5/4", "bb5/4 g5/4 f5/4 d5/4") },
+      { voice: "pulse12", volume: 0.04, notes: bars(times("c4/1 g4/1", 8), times("c4/1 g4/1", 8), times("ab3/1 eb4/1", 8), times("bb3/1 f4/1", 8)) },
+      { voice: "triangle", volume: 0.24, notes: bars(times("c2/2 c3/2", 4), times("c2/2 c3/2", 4), times("ab1/2 ab2/2", 4), times("bb1/2 bb2/2", 4)) },
+      { voice: "noise", volume: 0.055, notes: times(beat, 4) },
+    ],
+  },
+  briefing: {
+    bpm: 84, loop: true, channels: [
+      { voice: "pulse25", volume: 0.07, notes: bars("d4/4 f4/4 a4/8", "g4/4 f4/4 e4/8", "f4/4 d4/4 bb3/8", "a3/8 c#4/8") },
+      { voice: "triangle", volume: 0.24, notes: bars("d2/16", "d2/16", "bb1/16", "a1/16") },
+      { voice: "noise", volume: 0.04, notes: times("k/4 r/4 k/2 r/2 s/4", 4) },
+    ],
+  },
+  jobDone: {
+    bpm: 150, loop: false, channels: [
+      { voice: "pulse50", volume: 0.15, notes: "g4/2 c5/2 e5/2 g5/4 e5/2 g5/8 r/4" },
+      { voice: "pulse25", volume: 0.07, notes: "e4/2 g4/2 c5/2 e5/4 c5/2 e5/8 r/4" },
+      { voice: "triangle", volume: 0.22, notes: "c3/6 g2/4 c3/10 r/4" },
+    ],
+  },
+  frenzy: {
+    bpm: 150, loop: false, channels: [
+      { voice: "pulse50", volume: 0.14, notes: "c5/1 e5/1 g5/1 c6/1 e5/1 g5/1 c6/1 e6/1 g6/8" },
+      { voice: "triangle", volume: 0.22, notes: "c3/8 c4/8" },
+    ],
+  },
+  busted: {
+    bpm: 120, loop: false, channels: [
+      { voice: "pulse50", volume: 0.14, notes: "g4/4 f#4/4 f4/4 e4/12" },
+      { voice: "triangle", volume: 0.22, notes: "c3/4 b2/4 bb2/4 a2/12" },
+    ],
+  },
 } satisfies Record<string, Track>;
 
 export type TrackName = keyof typeof tracks;

@@ -1,7 +1,7 @@
 // Route A, private local preview. Provenance: docs/ASSETS.md.
 // Reference originals stay outside public; only prepared runtime assets are loaded.
 const frlg = (file: string) => `/assets/frlg/${file}`;
-export const monKeys = ["charizard", "pikachu", "venusaur", "blastoise", "bayleef", "caterpie"] as const;
+export const monKeys = ["charizard", "infernape", "blaziken", "pikachu", "venusaur", "blastoise", "bayleef", "caterpie"] as const;
 export type MonKey = typeof monKeys[number];
 
 export const assetManifest = {
@@ -22,9 +22,9 @@ export const assetManifest = {
     bag: { key: "bag", path: frlg("bag.png"), frameWidth: 64, frameHeight: 64 },
     types: { key: "types", path: frlg("types.png"), frameWidth: 32, frameHeight: 12 },
     redBack: { key: "red-back", path: frlg("red-back.png"), frameWidth: 64, frameHeight: 64 },
-    npcs: ["npc-lass", "npc-youngster", "npc-guard", "npc-auditor"].map((key) => ({ key, path: frlg(`${key}.png`), frameWidth: 16, frameHeight: 32 })),
-    images: ["arrow-down", "stars", "healthbox-enemy", "battle-bg", "battle-box", "party-bg", "party-slots", "bag-bg", "naming-bg", "oak-bg", "oak-platform", "title-mon", "prof", "red-full", "auditor-front",
-      "item-potion", "item-pokeball", "item-receipt", "item-calculator", "item-invoice"].map((key) => ({ key, path: frlg(`${key}.png`) })),
+    npcs: ["npc-lass", "npc-youngster", "npc-guard", "npc-broker"].map((key) => ({ key, path: frlg(`${key}.png`), frameWidth: 16, frameHeight: 32 })),
+    images: ["arrow-down", "stars", "healthbox-enemy", "battle-bg", "battle-box", "party-bg", "party-slots", "bag-bg", "naming-bg", "oak-bg", "oak-platform", "title-mon", "prof", "red-full", "broker-front",
+      "item-potion", "item-pokeball"].map((key) => ({ key, path: frlg(`${key}.png`) })),
     mons: monKeys.map((key) => ({
       front: { key: `front-${key}`, path: frlg(`front-${key}.png`) },
       back: { key: `back-${key}`, path: frlg(`back-${key}.png`) },
@@ -37,6 +37,13 @@ export const assetManifest = {
       { key: "frlg-small", texture: frlg("text-small.png"), data: frlg("text-small.xml") },
       { key: "frlg-small-white", texture: frlg("text-small-white.png"), data: frlg("text-small.xml") },
     ],
+  },
+  // Stream these on demand instead of decoding every song during scene preload.
+  music: {
+    opening: "/assets/audio/pokemon-theme.mp3",
+    bupfm: "/assets/audio/gta-radio-1.mp3",
+    krud: "/assets/audio/gta-radio-2.mp3",
+    brokerfm: "/assets/audio/gta-radio-3.mp3",
   },
   gta2: [],
 } as const;

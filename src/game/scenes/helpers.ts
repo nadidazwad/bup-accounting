@@ -4,9 +4,9 @@ import { gameInput, type InputAction } from "../input/router";
 import { gameStore } from "../state/store";
 
 /** Routes router actions and taps to a scene while it is running (not paused or asleep). */
-export function bindInput(scene: Scene, onAction: (action: InputAction) => void, onPointer?: (x: number, y: number) => void) {
+export function bindInput(scene: Scene, onAction: (action: InputAction, source: string) => void, onPointer?: (x: number, y: number) => void) {
   if (process.env.NODE_ENV === "development") scene.game.canvas.dataset.overlay = scene.sys.settings.key;
-  const unsubscribe = gameInput.subscribe((action) => { if (scene.sys.isActive()) onAction(action); });
+  const unsubscribe = gameInput.subscribe((action, source) => { if (scene.sys.isActive()) onAction(action, source); });
   const pointer = (p: { x: number; y: number }) => {
     scene.game.canvas.focus({ preventScroll: true });
     if (scene.sys.isActive()) onPointer?.(p.x, p.y);
@@ -63,3 +63,18 @@ export const playCry = (scene: Scene, key: string, rate = 1) => {
   if (settings.muted || !scene.cache.audio.exists(`cry-${key}`)) return;
   scene.sound.play(`cry-${key}`, { rate, volume: settings.volume });
 };
+
+/** Captures the next rendered frame of the whole canvas into a texture. */
+export function snapshotTexture(scene: Scene, key: string) {
+  return new Promise<void>((resolve) => {
+    scene.game.renderer.snapshot((snap) => {
+      const image = snap as HTMLImageElement;
+      const add = () => {
+        if (scene.textures.exists(key)) scene.textures.remove(key);
+        scene.textures.addImage(key, image);
+        resolve();
+      };
+      if (image.complete && image.naturalWidth) add(); else image.onload = add;
+    });
+  });
+}

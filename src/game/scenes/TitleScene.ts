@@ -8,7 +8,7 @@ import { label } from "../ui/text";
 import { bindInput, fadeOut, markReady, reducedMotion, tween, wait } from "./helpers";
 
 // FireRed-style title: a splash, then the box-art dragon over rising flames,
-// an original BUP wordmark, a blinking PRESS START and the main menu.
+// a POKéMON wordmark, a blinking PRESS START and the main menu.
 export class TitleScene extends Scene {
   private phase: "splash" | "title" | "menu" | "leaving" = "splash";
   private flames: GameObjects.Sprite[] = [];
@@ -24,7 +24,7 @@ export class TitleScene extends Scene {
     if (!this.anims.exists("title-flame")) this.anims.create({ key: "title-flame", frames: this.anims.generateFrameNumbers("flames", { start: 0, end: 9 }), frameRate: 15 });
     bindInput(this, (action) => this.onAction(action), (_x, y) => this.onPointer(y));
     markReady(this);
-    gameStore.say("BUP ACCOUNTING presents.");
+    gameStore.say("GAME FREAK-ISH presents.");
     void this.splash();
   }
 
@@ -34,7 +34,7 @@ export class TitleScene extends Scene {
     const star = this.add.rectangle(-10, 40, 3, 2, 0xffffff);
     const trail = this.add.graphics();
     container.add([trail, star]);
-    const words = label(this, 120, 72, "BUP ACCOUNTING", "white").setOrigin(0.5).setAlpha(0);
+    const words = label(this, 120, 72, "GAME FREAK-ISH", "white").setOrigin(0.5).setAlpha(0);
     const presents = label(this, 120, 90, "presents", "white").setOrigin(0.5).setAlpha(0);
     container.add([words, presents]);
     if (!reducedMotion()) {
@@ -58,7 +58,8 @@ export class TitleScene extends Scene {
     this.time.removeAllEvents();
     this.phase = "title";
     this.children.removeAll(true);
-    chip.play("title");
+    // The downloaded Pokémon theme is shared with the intro and overworld.
+    chip.play("opening");
     // Background: black sky fading into a deep ember red.
     const sky = this.add.graphics();
     const bands = [0x000000, 0x080000, 0x100000, 0x200408, 0x300808, 0x480c08, 0x601008, 0x781808];
@@ -77,9 +78,13 @@ export class TitleScene extends Scene {
       }
       logo.add(this.add.bitmapText(x, y, "frlg-gold", text, size));
     };
-    word("BUP", 4, 0, 42);
-    word("ACCOUNTING", 2, 40, 28);
-    const version = label(this, 14, 74, "AuditRed Version", "red");
+    word("POKEMON", 2, 6, 42);
+    // The accent over the E, drawn in the same navy-edged gold at glyph scale.
+    const accent = this.add.graphics();
+    accent.fillStyle(0x203890).fillRect(76, 0, 12, 7);
+    accent.fillStyle(0xffd828).fillRect(78, 1, 9, 3).fillRect(84, 1, 3, 5);
+    logo.add(accent);
+    const version = label(this, 18, 58, "BrokerRed Version", "red");
     logo.add(version);
     logo.setAlpha(0).setY(-20);
     this.tweens.add({ targets: logo, alpha: 1, y: 8, duration: 700, ease: "Back.easeOut" });
@@ -92,9 +97,9 @@ export class TitleScene extends Scene {
       this.tweens.add({ targets: star, scale: 1, angle: 90, duration: 260, yoyo: true, onComplete: () => star.destroy() });
     } });
     this.press = label(this, 120, 118, "PRESS START", "white").setOrigin(0.5, 0).setDepth(3);
-    label(this, 120, 145, "(C)2026 BUP ACCOUNTING / GAME FREAK-ISH", "small-white").setOrigin(0.5, 0).setDepth(3);
+    label(this, 120, 145, "(C)2026 GAME FREAK-ISH", "small-white").setOrigin(0.5, 0).setDepth(3);
     this.time.addEvent({ delay: 530, loop: true, callback: () => { if (this.phase === "title") this.press.setVisible(!this.press.visible); } });
-    gameStore.say("BUP ACCOUNTING, AuditRed Version. Press Start.");
+    gameStore.say("POKéMON BrokerRed Version. Press Start.");
   }
 
   private spawnFlame() {
@@ -128,7 +133,8 @@ export class TitleScene extends Scene {
         gameStore.say(m.index === 0 ? "Continue" : "New game");
       } else if (["confirm", "start"].includes(action)) {
         chip.sfx("select");
-        if (m.index === 0 && gameStore.load()) void this.leave("Overworld");
+        // A save from after THE BROKER's defeat continues in BROKER CITY.
+        if (m.index === 0 && gameStore.load()) void this.leave(gameStore.getSnapshot().flags.bossBeaten ? "City" : "Overworld");
         else { gameStore.reset(); void this.leave("Intro"); }
       } else if (["cancel", "menu"].includes(action)) {
         chip.sfx("select"); this.scene.restart();
@@ -155,7 +161,7 @@ export class TitleScene extends Scene {
     gameStore.say(`Continue. Player ${save.playerName}, time ${formatPlayTime(save.playMs)}, ${save.seen.length} in the POKéDEX. Or New game.`);
   }
 
-  private async leave(next: "Intro" | "Overworld") {
+  private async leave(next: "Intro" | "Overworld" | "City") {
     if (this.phase === "leaving") return;
     this.phase = "leaving";
     chip.stopMusic();
